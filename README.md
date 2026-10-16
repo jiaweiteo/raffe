@@ -17,13 +17,19 @@ For a fresh installation on this Mac, install Python 3.14 and Node.js 24, run `.
 
 ## Record the first payment
 
-1. Click **Record payment**. Enter the verified transfer amount or paste the UOB alert body. This creates a pending item, with no change to the pot.
-2. Select the payment and search for the guest. Table, guest-of and remarks distinguish duplicate names.
+1. Click **Record payment** and enter the verified transfer amount. Its ticket entitlement is calculated immediately.
+2. Search for the guest in the same form. Table, guest-of and remarks distinguish duplicate names. There is no separate pending-payment step for manual purchases.
 3. The app prefills the next available consecutive ticket range from saved purchases, including after a restart. Selling five tickets starting at **52000001** makes the next suggestion **52000006**. The prefix **5200** is fixed; you can edit the last four digits if the physical tickets differ. Group allocations also receive consecutive suggestions as you adjust their counts. Issued and voided numbers are skipped, and the field stays blank when no suitable range remains. Check the complete range before confirming. Valid stock is **52000001–52001500**, inclusive.
 4. For a group purchase, click **Split with another guest** and enter each person's amount, ticket count and first number. Guest amounts must total the transfer and counts must total its entitlement.
 5. Check the verification box and **Confirm purchase**. Then hand out the exact recorded ranges. The display, guest totals and Excel copy update.
 
-Packages apply separately to each whole transfer: $5 → 1, $20 → 5, $50 → 15, $100 → 30, $240 → 70. A $50 group transfer earns 15 tickets to distribute. Four separate $5 transfers earn four tickets. Unsupported amounts remain pending; correct or refund the actual transfer outside the app, ignore the unusable alert with a reason, and record the verified replacement as appropriate. Do not silently change received amounts.
+Packages apply separately to each whole transfer: $5 → 1, $20 → 5, $50 → 15, $100 → 30, $240 → 70. A $50 group transfer earns 15 tickets to distribute. Four separate $5 transfers earn four tickets. Unsupported amounts cannot be confirmed; resolve the actual transfer outside the app before recording a valid purchase. Imported Outlook alerts still use the pending queue. Do not silently change received amounts.
+
+## Manage guests
+
+In **Guest list**, use **New guest**, or select a guest using the radio button and choose **Edit selected guest**. Names, guest-of/relationship and whole-number table assignments are editable. A blank table means unassigned. Edits retain the guest's ID, purchases and ticket ownership.
+
+**Delete selected guest** removes the guest from the list and future purchases after a confirmation. Existing payments, tickets and the pot are preserved. The live Excel copy retains the guest's row with a **Removed** status so financial totals still reconcile. Guest changes appear in **Raffle Audit**. The original workbook is unchanged.
 
 If similar alerts have the same bank time, amount and account suffix, check the actual bank transactions and acknowledge whether they represent separate transfers. Emails alone cannot identify the buyer or prove that two messages represent different bank transactions.
 
@@ -72,7 +78,9 @@ npx vitest run
 npm run build
 ```
 
-Tests use temporary databases and synthetic payment/email fixtures; no real bank transfers, mailbox connections or live raffle purchases are created. Backend coverage includes group totals, package optimisation, prize rounding, capacity/boundaries, concurrent retries, duplicate email imports, delta recovery, expiry/rate limits, reversals, guest corrections, workbook preservation, file-lock recovery and API privacy. UI tests cover form reconciliation, verification, retry identifiers and projector data isolation.
+Tests use temporary databases and synthetic payment/email fixtures; no real bank transfers, mailbox connections or live raffle purchases are created. Backend coverage includes group totals, package optimisation, prize rounding, capacity/boundaries, concurrent retries, duplicate email imports, delta recovery, expiry/rate limits, reversals, guest management, atomic manual purchases, workbook preservation, file-lock recovery and API privacy. UI tests cover form reconciliation, verification, retry identifiers, guest selection and projector data isolation.
+
+Frontend components are in `frontend/src`. Run `npm run format` there to format the code, or `npm run format:check` to check it without writing changes.
 
 Production browser visual QA and real Microsoft sign-in/alert delivery still require verification on your event setup. Before collecting funds, confirm the applicable basis for paid entries: [GRA's incidental-event draw guidance](https://www.gra.gov.sg/licenses-approvals/class-licences/faq-for-incidental-games-of-chance-and-lotteries) requires draw participation to be free; wedding-only attendance does not itself establish eligibility for paid entries.
 # raffe

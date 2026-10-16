@@ -39,7 +39,7 @@ class ExcelExporter:
                     raise PermissionError("Close the live workbook in Excel to allow updates.")
                 book = load_workbook(self.store.template)
                 sheet = book["Raffle List"]
-                guests = self.store.guests()
+                guests = self.store.guests(include_deleted=True)
                 payments = self.store.payments()
                 references = {}
                 for payment in payments:
@@ -48,17 +48,28 @@ class ExcelExporter:
                             references.setdefault(allocation["guest_id"], set()).add(payment["id"])
                 for guest in guests:
                     row = guest["source_row"]
+                    for column, key in enumerate(("name", "remarks", "guest_of", "table_no"), start=2):
+                        value = guest[key] or ""
+                        if key == "table_no" and value:
+                            try:
+                                number = float(value)
+                                value = int(number) if number.is_integer() else value
+                            except ValueError:
+                                pass
+                        sheet.cell(row, column, safe_text(value))
                     sheet.cell(row, 6, guest["ticket_count"])
                     sheet.cell(row, 7, guest["paid_cents"] / 100).number_format = '"$"#,##0.00'
                     sheet.cell(row, 8, ", ".join(sorted(references.get(guest["id"], []))))
+                    sheet.cell(row, 9, "Removed" if guest["deleted_at"] else "Active")
+                sheet.cell(4, 9, "Guest status")
                 summary = self.store.summary()
                 sheet["K5"] = TICKET_CAPACITY
-                last_row = max(g["source_row"] for g in guests)
+                last_row = max((g["source_row"] for g in guests), default=5)
                 sheet["K6"] = f"=SUM(F5:F{last_row})"
                 sheet["K7"] = f'=K5-K6-COUNTIF(\'Ticket Register\'!B2:B1501,"void")'
                 sheet["K8"] = f"=SUM(G5:G{last_row})"
                 sheet["J7"] = "Unissued tickets (excludes voids)"
-                sheet.auto_filter.ref = f"B4:H{last_row}"
+                sheet.auto_filter.ref = f"B4:I{last_row}"
                 for report in audit_reports(self.store)["sheets"]:
                     tab = book.create_sheet(report["name"])
                     tab.append([column["label"] for column in report["columns"]])

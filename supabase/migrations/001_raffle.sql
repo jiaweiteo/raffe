@@ -5,7 +5,7 @@ SET search_path = raffle, pg_catalog;
 CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS guests(
  id TEXT PRIMARY KEY, name TEXT NOT NULL, remarks TEXT, guest_of TEXT,
- table_no TEXT, source_row INTEGER NOT NULL UNIQUE);
+ table_no TEXT, source_row INTEGER NOT NULL UNIQUE, deleted_at TEXT);
 CREATE TABLE IF NOT EXISTS payments(
  id TEXT PRIMARY KEY, source_key TEXT UNIQUE, source TEXT NOT NULL,
  amount_cents INTEGER NOT NULL CHECK(amount_cents>0), bank_time TEXT,

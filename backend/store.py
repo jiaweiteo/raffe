@@ -21,13 +21,14 @@ class Store:
         self.path = self.root / "raffle.sqlite3"
         self.template = self.root / "registration-template.xlsx"
         self.lock = threading.RLock()
+        self._transaction = threading.local()
         with self.connection() as db:
             db.executescript("""
                 PRAGMA journal_mode=WAL;
                 CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS guests(
                     id TEXT PRIMARY KEY, name TEXT NOT NULL, remarks TEXT, guest_of TEXT,
-                    table_no TEXT, source_row INTEGER NOT NULL UNIQUE);
+                    table_no TEXT, source_row INTEGER NOT NULL UNIQUE, deleted_at TEXT);
                 CREATE TABLE IF NOT EXISTS payments(
                     id TEXT PRIMARY KEY, source_key TEXT UNIQUE, source TEXT NOT NULL,
                     amount_cents INTEGER NOT NULL CHECK(amount_cents>0), bank_time TEXT,
@@ -48,6 +49,8 @@ class Store:
                     message_id TEXT PRIMARY KEY, received_at TEXT NOT NULL, error TEXT NOT NULL,
                     source_link TEXT NOT NULL, resolved INTEGER NOT NULL DEFAULT 0);
             """)
+            if "deleted_at" not in {row["name"] for row in db.execute("PRAGMA table_info(guests)")}:
+                db.execute("ALTER TABLE guests ADD COLUMN deleted_at TEXT")
             defaults = {"revision": 0, "event_title": "A little luck. A lot of love.",
                         "client_id": "", "trusted_sender": "", "account_suffix": "",
                         "start_time": now_iso(), "delta_link": "", "sync_status": "Not connected",
@@ -68,14 +71,26 @@ class Store:
     @contextmanager
     def connection(self):
         with self.lock:
+            existing = getattr(self._transaction, "connection", None)
+            if existing is not None:
+                yield existing
+                return
             db = sqlite3.connect(self.path, timeout=15)
             db.row_factory = sqlite3.Row
             db.execute("PRAGMA foreign_keys=ON")
             try:
                 with db:
+                    self._transaction.connection = db
                     yield db
             finally:
+                self._transaction.connection = None
                 db.close()
+
+    def _begin_write(self, db):
+        # Reserve the SQLite writer before an idempotency check, including across processes.
+        # PostgreSQL connections already hold the shared advisory transaction lock.
+        if isinstance(db, sqlite3.Connection) and not db.in_transaction:
+            db.execute("BEGIN IMMEDIATE")
 
     def _import_guests(self, db, source):
         if not source.is_file():
@@ -94,7 +109,7 @@ class Store:
                     raise RuntimeError("Workbook contains existing raffle purchases; zero-balance import was requested.")
                 identity = json.dumps([str(x or "").strip() for x in values[:4]], ensure_ascii=False)
                 guest_id = str(uuid.uuid5(uuid.NAMESPACE_URL, "wedding-raffle:" + identity))
-                db.execute("INSERT INTO guests VALUES (?,?,?,?,?,?)",
+                db.execute("INSERT INTO guests(id,name,remarks,guest_of,table_no,source_row) VALUES (?,?,?,?,?,?)",
                            (guest_id, *[str(x).strip() if x is not None else "" for x in values[:4]], row))
         finally:
             book.close()
@@ -126,14 +141,82 @@ class Store:
             for key, value in values.items():
                 self._set(db, key, value)
 
-    def guests(self):
+    def guests(self, include_deleted=False):
         with self.connection() as db:
             return [dict(row) for row in db.execute("""
                 SELECT g.*, COALESCE(SUM(CASE WHEN p.status='confirmed' THEN a.amount_cents ELSE 0 END),0) paid_cents,
                   COALESCE(SUM(CASE WHEN p.status='confirmed' THEN a.count ELSE 0 END),0) ticket_count
                 FROM guests g LEFT JOIN allocations a ON a.guest_id=g.id
-                LEFT JOIN payments p ON p.id=a.payment_id GROUP BY g.id ORDER BY LOWER(g.name),g.source_row
-            """)]
+                LEFT JOIN payments p ON p.id=a.payment_id
+            """ + ("" if include_deleted else " WHERE g.deleted_at IS NULL ") + " GROUP BY g.id ORDER BY LOWER(g.name),g.source_row")]
+
+    @staticmethod
+    def _guest_fields(name, guest_of, table_no):
+        name, guest_of = name.strip(), guest_of.strip()
+        if not name or len(name) > 200 or len(guest_of) > 200:
+            raise RuleError("Enter a guest name and keep names and relationships within 200 characters.")
+        if table_no is not None and (type(table_no) is not int or not 1 <= table_no <= 9999):
+            raise RuleError("Table number must be a whole number from 1 to 9999, or left blank.")
+        return name, guest_of, "" if table_no is None else str(table_no)
+
+    def create_guest(self, guest_id, *, name, guest_of="", table_no=None):
+        fields = self._guest_fields(name, guest_of, table_no)
+        with self.connection() as db:
+            self._begin_write(db)
+            existing = db.execute("SELECT * FROM guests WHERE id=?", (guest_id,)).fetchone()
+            if existing:
+                if existing["deleted_at"]:
+                    raise RuleError("This guest was deleted. Start a new guest entry.")
+                if tuple(existing[key] or "" for key in ("name", "guest_of", "table_no")) != fields:
+                    raise RuleError("This guest entry was already saved. Refresh the list to edit it.")
+                return dict(existing)
+            row = db.execute("SELECT COALESCE(MAX(source_row),4)+1 FROM guests").fetchone()[0]
+            db.execute("INSERT INTO guests(id,name,guest_of,table_no,remarks,source_row) VALUES (?,?,?,?,'',?)",
+                       (guest_id, *fields, row))
+            guest = dict(db.execute("SELECT * FROM guests WHERE id=?", (guest_id,)).fetchone())
+            self._audit(db, "guest_added", None, {"guest": guest})
+            self._changed(db)
+            return guest
+
+    def update_guest(self, guest_id, *, name, guest_of="", table_no=None):
+        fields = self._guest_fields(name, guest_of, table_no)
+        with self.connection() as db:
+            self._begin_write(db)
+            before = db.execute("SELECT * FROM guests WHERE id=? AND deleted_at IS NULL", (guest_id,)).fetchone()
+            if not before:
+                raise RuleError("Guest not found. Refresh the guest list.")
+            if tuple(before[key] or "" for key in ("name", "guest_of", "table_no")) == fields:
+                return dict(before)
+            db.execute("UPDATE guests SET name=?,guest_of=?,table_no=? WHERE id=?", (*fields, guest_id))
+            after = dict(db.execute("SELECT * FROM guests WHERE id=?", (guest_id,)).fetchone())
+            self._audit(db, "guest_updated", None, {"before": dict(before), "after": after})
+            self._changed(db)
+            return after
+
+    def delete_guest(self, guest_id):
+        with self.connection() as db:
+            self._begin_write(db)
+            guest = db.execute("SELECT * FROM guests WHERE id=?", (guest_id,)).fetchone()
+            if not guest:
+                raise RuleError("Guest not found. Refresh the guest list.")
+            if guest["deleted_at"]:
+                return
+            db.execute("UPDATE guests SET deleted_at=? WHERE id=?", (now_iso(), guest_id))
+            self._audit(db, "guest_deleted", None, {"guest": dict(guest), "payment_and_ticket_history_preserved": True})
+            self._changed(db)
+
+    def create_purchase(self, *, request_id, amount_cents, note, allocations, verified):
+        # One transaction: invalid allocations leave no payment, audit events or tickets behind.
+        with self.connection() as db:
+            self._begin_write(db)
+            payment, _ = self.create_payment(amount_cents=amount_cents, source_key="purchase:" + str(request_id), note=note)
+            if payment["status"] == "confirmed":
+                keys = ("guest_id", "amount_cents", "count", "first_ticket")
+                original = sorted(tuple(a[key] for key in keys) for a in payment["allocations"])
+                proposed = sorted(tuple(a[key] for key in keys) for a in allocations)
+                if payment["amount_cents"] != amount_cents or payment["note"] != note or original != proposed:
+                    raise RuleError("This entry was already saved. Close the form and refresh before recording another purchase.")
+            return self.confirm(payment["id"], allocations, verified)
 
     def _duplicates(self, db, payment):
         if not payment["bank_time"]:
@@ -167,6 +250,7 @@ class Store:
         if type(amount_cents) is not int or not 0 < amount_cents <= 100_000_000:
             raise RuleError("Enter a positive amount of at most $1,000,000.")
         with self.connection() as db:
+            self._begin_write(db)
             existing = db.execute("SELECT * FROM payments WHERE source_key=?", (source_key,)).fetchone()
             if existing:
                 return self._payment(db, existing), False
@@ -180,6 +264,7 @@ class Store:
 
     def confirm(self, payment_id, allocations, verified, duplicate_ack=False):
         with self.connection() as db:
+            self._begin_write(db)
             payment = db.execute("SELECT * FROM payments WHERE id=?", (payment_id,)).fetchone()
             if not payment:
                 raise RuleError("Payment not found.")
@@ -200,7 +285,7 @@ class Store:
                     raise RuleError("Amounts, counts and ticket numbers must be integers.")
                 if item["amount_cents"] < 0 or item["count"] <= 0:
                     raise RuleError("Guest amounts cannot be negative and ticket counts must be positive.")
-                if not db.execute("SELECT 1 FROM guests WHERE id=?", (item.get("guest_id"),)).fetchone():
+                if not db.execute("SELECT 1 FROM guests WHERE id=? AND deleted_at IS NULL", (item.get("guest_id"),)).fetchone():
                     raise RuleError("Select a registered guest for every allocation.")
             if sum(a["amount_cents"] for a in allocations) != payment["amount_cents"]:
                 raise RuleError("Guest amounts must add up to the full payment.")
@@ -258,7 +343,7 @@ class Store:
                              (allocation_id, payment_id)).fetchone()
             if not row or row["status"] != "confirmed":
                 raise RuleError("Only a confirmed guest allocation can be reassigned.")
-            if not db.execute("SELECT 1 FROM guests WHERE id=?", (guest_id,)).fetchone():
+            if not db.execute("SELECT 1 FROM guests WHERE id=? AND deleted_at IS NULL", (guest_id,)).fetchone():
                 raise RuleError("Select a registered guest.")
             db.execute("UPDATE allocations SET guest_id=? WHERE id=?", (guest_id, allocation_id))
             self._audit(db, "guest_reassigned", payment_id, {"allocation_id": allocation_id, "from": row["guest_id"], "to": guest_id, "reason": reason})

@@ -49,6 +49,24 @@ class Confirmation(Input):
     duplicate_ack: StrictBool = False
 
 
+class Purchase(Input):
+    request_id: UUID
+    amount_cents: Annotated[StrictInt, Field(gt=0, le=100_000_000)]
+    note: str = Field(default="", max_length=1000)
+    allocations: list[Allocation] = Field(min_length=1, max_length=1500)
+    verified: StrictBool
+
+
+class GuestInput(Input):
+    name: str = Field(min_length=1, max_length=200)
+    guest_of: str = Field(default="", max_length=200)
+    table_no: Annotated[StrictInt, Field(ge=1, le=9999)] | None = None
+
+
+class NewGuest(GuestInput):
+    request_id: UUID
+
+
 class Reason(Input):
     reason: str = Field(min_length=3, max_length=1000)
 
@@ -217,6 +235,32 @@ def create_app(data_dir=None, source=None, output=None, run_workers=True, *, clo
             payment, created = store.create_payment(amount_cents=body.amount_cents, source="manual", source_key="manual:" + str(body.request_id), note=body.note)
         exporter.sync()
         return {"payment": payment, "created": created}
+
+    @app.post("/api/purchases")
+    def purchase(body: Purchase):
+        result = store.create_purchase(request_id=body.request_id, amount_cents=body.amount_cents,
+                                       note=body.note, verified=body.verified,
+                                       allocations=[a.model_dump() for a in body.allocations])
+        persist_outputs()
+        return result
+
+    @app.post("/api/guests")
+    def new_guest(body: NewGuest):
+        result = store.create_guest(str(body.request_id), **body.model_dump(exclude={"request_id"}))
+        persist_outputs()
+        return result
+
+    @app.put("/api/guests/{guest_id}")
+    def edit_guest(guest_id: str, body: GuestInput):
+        result = store.update_guest(guest_id, **body.model_dump())
+        persist_outputs()
+        return result
+
+    @app.delete("/api/guests/{guest_id}")
+    def remove_guest(guest_id: str):
+        store.delete_guest(guest_id)
+        persist_outputs()
+        return {"ok": True}
 
     @app.post("/api/payments/{payment_id}/confirm")
     def confirm(payment_id: str, body: Confirmation):

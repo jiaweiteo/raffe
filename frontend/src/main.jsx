@@ -1,166 +1,1180 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
-import { createRoot } from 'react-dom/client';
-import { ArrowDownLeft, ArrowRight, ArrowUpRight, Check, CheckCircle2, ChevronRight, CircleAlert, Clover, Download, Expand, FileSpreadsheet, History, Inbox, Leaf, Link2, LoaderCircle, Mail, Minus, Plus, RefreshCw, Settings2, ShieldCheck, Sparkles, Ticket, Trash2, Trophy, Users, Wallet, X } from 'lucide-react';
-import './styles.css';
-import { FIRST, LAST, prefillTicketRows, ticketFromSuffix } from './ticketNumbers';
-import AuditPage from './AuditPage';
-import GuestList from './GuestList';
-import AuthGate, { authHeaders, SignOut } from './cloudAuth';
+import React, { useEffect, useRef, useState } from "react";
+import { createRoot } from "react-dom/client";
+import {
+  ArrowDownLeft,
+  ArrowRight,
+  ArrowUpRight,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  CircleAlert,
+  Clover,
+  Download,
+  Expand,
+  FileSpreadsheet,
+  History,
+  Inbox,
+  Leaf,
+  LoaderCircle,
+  Mail,
+  Plus,
+  RefreshCw,
+  Settings2,
+  ShieldCheck,
+  Sparkles,
+  Ticket,
+  Trash2,
+  Trophy,
+  Users,
+  X,
+} from "lucide-react";
+import "./styles.css";
 
-const money = cents => new Intl.NumberFormat('en-SG', { style: 'currency', currency: 'SGD', currencyDisplay: 'narrowSymbol', minimumFractionDigits: 2 }).format(cents / 100);
-const integer = value => new Intl.NumberFormat('en-SG').format(value);
-const time = value => value ? new Date(value).toLocaleTimeString('en-SG', { timeZone: 'Asia/Singapore', hour: '2-digit', minute: '2-digit' }) : 'Not yet';
-const dateTime = value => value ? new Date(value).toLocaleString('en-SG', { timeZone: 'Asia/Singapore', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'No bank timestamp';
-const centsFrom = value => /^\d+(\.\d{0,2})?$/.test(String(value)) ? Math.round(Number(value) * 100) : NaN;
-const wholeFrom = value => /^\d+$/.test(String(value)) ? Number(value) : NaN;
-const mailLink = value => { try { const url = new URL(value); return url.protocol==='https:' && ['outlook.live.com','outlook.office.com','outlook.office365.com'].includes(url.hostname) ? value : null; } catch { return null; } };
-async function api(path, options = {}) {
-  const credentials = await authHeaders();
-  let response;
-  try {
-    response = await fetch('/api' + path, { ...options, headers: { 'Content-Type': 'application/json', ...credentials, ...options.headers }, body: options.body ? JSON.stringify(options.body) : undefined });
-  } catch { throw new Error('Cannot reach the app. Keep your work here and check your connection.'); }
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(typeof error.detail === 'string' ? error.detail : 'Please check the entered values and try again.');
-  }
-  return options.blob ? response.blob() : response.json();
-}
-const post = (path, body = {}) => api(path, { method: 'POST', body });
-const loadAuditReports = () => api('/audit/sheets');
-function Button({ children, variant = '', className = '', ...props }) { return <button className={`button ${variant} ${className}`} {...props}>{children}</button>; }
-function Badge({ children, tone = '' }) { return <span className={`badge ${tone}`}>{children}</span>; }
-function Empty({ icon: Icon = Inbox, title, children, action }) { return <div className="empty"><div className="empty-icon"><Icon size={26}/></div><h3>{title}</h3><p>{children}</p>{action}</div>; }
-function Modal({ title, eyebrow, children, onClose, wide = false }) {
-  const ref = useRef();
-  useEffect(() => { const previous = document.activeElement; ref.current?.focus(); const listener = e => { if (e.key === 'Escape') onClose(); if (e.key === 'Tab') { const items = [...ref.current.querySelectorAll('button,input,select,textarea,a[href]')].filter(x => !x.disabled); if (!items.length) return; if (e.shiftKey && document.activeElement === items[0]) {e.preventDefault(); items.at(-1).focus();} else if (!e.shiftKey && document.activeElement === items.at(-1)) {e.preventDefault(); items[0].focus();} } }; document.addEventListener('keydown', listener); return () => { document.removeEventListener('keydown', listener); previous?.focus(); }; }, []);
-  return <div className="modal-shade" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}><section className={`modal ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} ref={ref}><button className="icon-button modal-close" aria-label="Close dialog" onClick={onClose}><X size={20}/></button><p className="eyebrow">{eyebrow || 'RAFFLE DESK'}</p><h2>{title}</h2>{children}</section></div>;
-}
-
-function GuestPicker({ guests, value, onChange, label = 'Guest' }) {
-  const id = useId();
-  const selected = guests.find(g => g.id === value);
-  const textFor = g => `${g.name}${g.table_no ? ` · Table ${g.table_no}` : ''}`;
-  const [query, setQuery] = useState(selected ? textFor(selected) : '');
-  useEffect(() => { if (selected) setQuery(textFor(selected)); }, [value]);
-  const [open, setOpen] = useState(false), [active, setActive] = useState(0);
-  const matches = guests.filter(g => !query || (selected && query === textFor(selected)) || `${g.name} ${g.table_no} ${g.guest_of} ${g.remarks}`.toLowerCase().includes(query.toLowerCase())).slice(0, 8);
-  const choose = guest => { onChange(guest.id); setQuery(textFor(guest)); setOpen(false); };
-  return <div className="guest-picker"><label htmlFor={id}>{label}</label><input id={id} role="combobox" autoComplete="off" aria-expanded={open} aria-controls={`${id}-list`} aria-autocomplete="list" aria-activedescendant={open && matches[active] ? `${id}-${active}` : undefined} placeholder="Search name, table or relationship" value={query}
-    onFocus={() => setOpen(true)} onBlur={() => setOpen(false)} onChange={e => { setQuery(e.target.value); onChange(''); setOpen(true); setActive(0); }}
-    onKeyDown={e => { if (e.key === 'ArrowDown') {e.preventDefault();setOpen(true);setActive(i => Math.min(i+1, matches.length-1));} if (e.key === 'ArrowUp') {e.preventDefault();setActive(i => Math.max(0,i-1));} if (e.key === 'Enter' && open && matches[active]) {e.preventDefault();choose(matches[active]);} if (e.key === 'Escape') setOpen(false); }}/>
-    {selected && <small className="guest-detail">{[selected.guest_of, selected.remarks].filter(Boolean).join(' · ') || 'Registered wedding guest'}</small>}
-    {open && <div className="guest-options" role="listbox" id={`${id}-list`}>{matches.map((g, i) => <button type="button" id={`${id}-${i}`} key={g.id} role="option" aria-selected={g.id === value} className={i === active ? 'active' : ''} onMouseDown={e => e.preventDefault()} onClick={() => choose(g)}><strong>{textFor(g)}</strong><small>{[g.guest_of, g.remarks].filter(Boolean).join(' · ')}</small></button>)}{!matches.length && <p>No matching registered guest.</p>}</div>}
-  </div>;
-}
-
-function ManualModal({ onClose, onCreated, act, busy }) {
-  const [mode, setMode] = useState('amount'), [amount, setAmount] = useState(''), [body, setBody] = useState(''), [note, setNote] = useState('');
-  const requestId = useRef(crypto.randomUUID());
-  const submit = e => { e.preventDefault(); act(async () => { const result = await post('/payments', { request_id: requestId.current, note, ...(mode === 'amount' ? {amount_cents: centsFrom(amount)} : {alert_body: body}) }); onCreated(result.payment.id); }, 'Payment added to the review queue.'); };
-  return <Modal title="Record a payment" onClose={onClose}><p className="muted">Add a verified transfer, then match its tickets to your guests.</p><div className="segmented"><button onClick={() => setMode('amount')} className={mode === 'amount' ? 'selected' : ''}>Enter amount</button><button onClick={() => setMode('email')} className={mode === 'email' ? 'selected' : ''}>Paste bank alert</button></div><form onSubmit={submit}>
-    {mode === 'amount' ? <label>Payment amount (SGD)<div className="money-input"><span>$</span><input autoFocus inputMode="decimal" placeholder="50.00" value={amount} onChange={e => setAmount(e.target.value)} required/></div></label> : <label>UOB email body<textarea autoFocus rows={6} value={body} onChange={e => setBody(e.target.value)} placeholder="You have received SGD 50.00 in your PayNow-linked account…" required/></label>}
-    <label>Note <span className="optional">optional</span><textarea rows={2} maxLength={1000} value={note} onChange={e => setNote(e.target.value)} placeholder="Buyer or bank reference to help you match this transfer"/></label>
-    <div className="notice"><ShieldCheck size={17}/><span>This adds a pending payment. The pot changes only after you verify and confirm its allocation.</span></div>
-    <div className="modal-actions"><Button type="button" onClick={onClose}>Cancel</Button><Button variant="primary" disabled={busy || (mode === 'amount' ? !Number.isFinite(centsFrom(amount)) || centsFrom(amount) <= 0 : !body.trim())}>{busy ? <LoaderCircle className="spin" size={16}/> : <Plus size={16}/>}Add to queue</Button></div>
-  </form></Modal>;
-}
-
-function AllocationForm({ payment, guests, occupiedRanges = [], act, busy, dirtyRef, onConfirmed, onIgnore }) {
-  const [rows, setRows] = useState(() => prefillTicketRows([{key: crypto.randomUUID(), guest_id: '', amount: (payment.amount_cents / 100).toFixed(2), count: String(payment.ticket_entitlement || ''), first: '', autoFirst: true}], occupiedRanges));
-  const rangesKey = JSON.stringify(occupiedRanges);
-  useEffect(() => { setRows(current => prefillTicketRows(current, occupiedRanges)); }, [rangesKey]);
-  const [verified, setVerified] = useState(false), [duplicateAck, setDuplicateAck] = useState(false);
-  const change = (key, field, value) => { dirtyRef.current = true; setRows(rows => prefillTicketRows(rows.map(r => r.key === key ? {...r, [field]: value, ...(field === 'first' ? {autoFirst: false} : {})} : r), occupiedRanges)); };
-  const allocatedCents = rows.reduce((sum, r) => sum + (Number.isFinite(centsFrom(r.amount)) ? centsFrom(r.amount) : 0), 0);
-  const allocatedCount = rows.reduce((sum, r) => sum + (wholeFrom(r.count) || 0), 0);
-  const validRows = rows.every(r => r.guest_id && Number.isFinite(centsFrom(r.amount)) && wholeFrom(r.count) > 0 && ticketFromSuffix(r.first) >= FIRST && ticketFromSuffix(r.first) + wholeFrom(r.count) - 1 <= LAST);
-  const reconciled = allocatedCents === payment.amount_cents && allocatedCount === payment.ticket_entitlement;
-  const confirm = e => { e.preventDefault(); act(async () => { await post(`/payments/${payment.id}/confirm`, {verified, duplicate_ack: duplicateAck, allocations: rows.map(r => ({guest_id:r.guest_id, amount_cents:centsFrom(r.amount), count:wholeFrom(r.count), first_ticket:ticketFromSuffix(r.first)}))}); dirtyRef.current = false; onConfirmed(); }, 'Purchase confirmed. The pot and ticket records are updated.'); };
-  return <form onSubmit={confirm} className="allocation-form"><div className="payment-focus"><span className="eyebrow">PAYMENT TO MATCH</span><div className="payment-amount">{money(payment.amount_cents)} <Badge tone="gold">{payment.ticket_entitlement ?? '—'} entries</Badge></div><div className="muted small">{payment.source === 'manual' ? 'Manually recorded' : dateTime(payment.bank_time)}<span className="dot-separator">·</span>{payment.id}</div>{payment.note && <p className="payment-note">{payment.note}</p>}{mailLink(payment.source_link)&&<a className="text-button small" href={mailLink(payment.source_link)} target="_blank" rel="noreferrer">Open bank alert<ArrowUpRight size={13}/></a>}</div>
-    {payment.amount_error && <div className="notice warning"><CircleAlert size={18}/><span>{payment.amount_error}</span></div>}
-    {payment.possible_duplicates.length > 0 && <div className="notice warning column"><strong>Similar transfer detected</strong><span>Same amount, bank time and account as {payment.possible_duplicates.join(', ')}. Verify whether this is a separate transfer.</span><label className="checkbox"><input type="checkbox" checked={duplicateAck} onChange={e => {setDuplicateAck(e.target.checked);dirtyRef.current=true;}}/>I checked that this is a separate payment.</label></div>}
-    <div className="section-heading"><h3>Who bought the tickets?</h3><span>{rows.length > 1 ? 'Group purchase' : 'Guest allocation'}</span></div>
-    {rows.map((row, index) => <div className="allocation" key={row.key}><div className="allocation-top"><span>GUEST {String(index + 1).padStart(2,'0')}</span>{rows.length > 1 && <button type="button" className="icon-button" aria-label={`Remove guest ${index+1}`} onClick={() => {dirtyRef.current=true;setRows(current => prefillTicketRows(current.filter(r => r.key !== row.key), occupiedRanges));}}><X size={16}/></button>}</div><GuestPicker guests={guests} value={row.guest_id} onChange={value => change(row.key, 'guest_id', value)}/><div className="form-grid"><label>Share (SGD)<input aria-label={`Guest ${index+1} amount`} inputMode="decimal" value={row.amount} onChange={e => change(row.key,'amount',e.target.value)}/></label><label>Tickets<input aria-label={`Guest ${index+1} ticket count`} inputMode="numeric" value={row.count} onChange={e => change(row.key,'count',e.target.value)}/></label></div><label>First physical ticket number<div className="ticket-number-input"><span aria-hidden="true">5200</span><input aria-label={`Guest ${index+1} first ticket`} aria-describedby={`ticket-hint-${row.key}`} inputMode="numeric" pattern="[0-9]{1,4}" maxLength={4} autoComplete="off" placeholder="0001" value={row.first} onChange={e => {if (/^\d{0,4}$/.test(e.target.value)) change(row.key,'first',e.target.value);}}/></div><small className="ticket-input-hint" id={`ticket-hint-${row.key}`}>Next available range is prefilled. Change the last four digits if needed.</small></label><div className="range-preview"><Ticket size={14}/>{Number.isFinite(ticketFromSuffix(row.first)) && wholeFrom(row.count) > 0 ? `${ticketFromSuffix(row.first)} – ${ticketFromSuffix(row.first) + wholeFrom(row.count) - 1}` : 'Your full ticket range will appear here'}</div></div>)}
-    <button type="button" className="text-button add-guest" onClick={() => {dirtyRef.current=true;setRows(current => prefillTicketRows([...current,{key:crypto.randomUUID(),guest_id:'',amount:(Math.max(0,payment.amount_cents-allocatedCents)/100).toFixed(2),count:payment.ticket_entitlement>allocatedCount?String(payment.ticket_entitlement-allocatedCount):'',first:'',autoFirst:true}], occupiedRanges));}}><Plus size={16}/>Split with another guest</button>
-    <div className={`reconcile ${reconciled ? 'complete' : ''}`}><div><span>Allocated amount</span><strong>{money(allocatedCents)} <em>/ {money(payment.amount_cents)}</em></strong></div><div><span>Allocated tickets</span><strong>{allocatedCount} <em>/ {payment.ticket_entitlement ?? '—'}</em></strong></div>{reconciled && <CheckCircle2 size={18}/>}</div>
-    <label className="checkbox verify"><input type="checkbox" checked={verified} onChange={e => {setVerified(e.target.checked);dirtyRef.current=true;}}/><span>I verified the transfer, the buyers and the physical ticket ranges.</span></label><Button variant="primary full" disabled={busy || !validRows || !reconciled || !verified || (payment.possible_duplicates.length > 0 && !duplicateAck)}>{busy ? <LoaderCircle className="spin" size={17}/> : <Check size={17}/>}Confirm purchase</Button><button type="button" className="text-button muted ignore" onClick={onIgnore}>Ignore this payment…</button>
-  </form>;
-}
+import AuditPage from "./AuditPage";
+import GuestList from "./GuestList";
+import GuestEditor from "./GuestEditor";
+import { Button, Badge, Empty, Modal } from "./ui";
+import AuthGate, { SignOut } from "./cloudAuth";
+import { money, integer, time, dateTime, mailLink } from "./format";
+import { api, post, loadAuditReports } from "./api";
+import GuestPicker from "./GuestPicker";
+import AllocationForm from "./AllocationForm";
+import ManualModal from "./ManualModal";
+import SettingsPage from "./SettingsPage";
 
 function PaymentDetail({ payment, guests, act, busy, onClose }) {
-  const [mode, setMode] = useState('view'), [reason, setReason] = useState(''), [checked, setChecked] = useState(false), [allocationId, setAllocationId] = useState(''), [guestId, setGuestId] = useState('');
-  return <Modal title={money(payment.amount_cents) + ' payment'} eyebrow={payment.id} onClose={onClose} wide><div className="detail-meta"><Badge tone={payment.status === 'confirmed' ? 'green' : 'gold'}>{payment.status}</Badge><span>{dateTime(payment.confirmed_at || payment.created_at)}</span></div><div className="detail-allocations">{payment.allocations.map(a => <div key={a.id}><div><strong>{a.name}</strong><small>Table {a.table_no || '—'} · {a.first_ticket}–{a.first_ticket+a.count-1}</small></div><div><strong>{a.count} tickets</strong><small>{money(a.amount_cents)}</small></div>{payment.status === 'confirmed' && <button className="text-button" onClick={() => {setMode('reassign');setAllocationId(a.id);setGuestId(a.guest_id);setReason('');}}>Change guest</button>}</div>)}</div>{payment.note && <p className="notice">{payment.note}</p>}
-    {mode === 'reassign' && <div className="correction-box"><h3>Correct the guest</h3><GuestPicker guests={guests} value={guestId} onChange={setGuestId}/><label>Reason<textarea value={reason} onChange={e => setReason(e.target.value)} placeholder="Why is this guest being changed?"/></label><Button variant="primary" disabled={busy || !guestId || reason.trim().length<3} onClick={() => act(async () => { await api(`/payments/${payment.id}/allocations/${allocationId}`,{method:'PATCH',body:{guest_id:guestId,reason}});onClose();},'Guest corrected. Ticket numbers and payment amount are unchanged.')}>Save correction</Button></div>}
-    {mode === 'reverse' && <div className="correction-box"><div className="notice warning"><CircleAlert size={20}/><span>Reversing removes this payment from the pot and voids all its tickets. Remove the physical draw stubs. These numbers cannot be resold. This does not send a bank refund.</span></div><label>Reason<textarea value={reason} onChange={e => setReason(e.target.value)} placeholder="Explain the reversal"/></label><label className="checkbox"><input type="checkbox" checked={checked} onChange={e=>setChecked(e.target.checked)}/>I will remove all affected physical stubs from the draw.</label><Button variant="danger" disabled={busy || !checked || reason.trim().length<3} onClick={() => act(async () => {await post(`/payments/${payment.id}/reverse`,{reason});onClose();},'Payment reversed. Remove its physical draw stubs; those numbers are permanently void.')}>Reverse and void tickets</Button></div>}
-    <div className="modal-actions">{payment.status==='confirmed' && mode==='view' && <button className="text-button danger-text" onClick={()=>{setMode('reverse');setReason('');}}>Reverse payment…</button>}<Button onClick={onClose}>Close</Button></div>
-  </Modal>;
-}
-
-function SettingsPage({ settings, act, busy }) {
-  const toLocal = iso => { const date=new Date(iso); return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16); };
-  const [form,setForm]=useState({...settings,start_time:toLocal(settings.start_time)});
-  const field=(key,value)=>setForm({...form,[key]:value});
-  if (settings.cloud) return <section className="panel settings-form"><h2>Event settings</h2><form onSubmit={e=>{e.preventDefault();act(()=>api('/settings',{method:'PUT',body:{event_title:form.event_title,client_id:'',trusted_sender:'',account_suffix:settings.account_suffix||'',start_time:settings.start_time}}),'Event title saved.');}}><label>Live display title<input value={form.event_title} maxLength={100} onChange={e=>field('event_title',e.target.value)} required/></label><Button variant="primary" disabled={busy}>Save settings</Button></form><p>Record payments manually or paste a bank alert. Outlook intake is deferred.</p><p>Purchases and audit records are saved in the cloud. Download Excel or a records backup before the event.</p></section>;
-  const save=e=>{e.preventDefault();act(()=>api('/settings',{method:'PUT',body:{event_title:form.event_title,client_id:form.client_id.trim(),trusted_sender:form.trusted_sender.trim(),account_suffix:form.account_suffix,start_time:new Date(form.start_time).toISOString()}}),'Settings saved. Connect Outlook to start or resume intake.');};
-  return <div className="settings-layout"><section className="panel settings-form"><div className="panel-heading"><div><p className="eyebrow">MAKE IT YOURS</p><h2>Event & email settings</h2></div><Settings2 size={22}/></div><form onSubmit={save}><label>Live display title<input value={form.event_title} maxLength={100} onChange={e=>field('event_title',e.target.value)} required/></label><div className="divider"/><h3>Outlook connection</h3><p className="muted small">Personal Outlook or Hotmail. Your bank password is never needed.</p><label>Microsoft application (client) ID<input value={form.client_id} onChange={e=>field('client_id',e.target.value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"/></label><label>Exact UOB sender email address<input type="email" value={form.trusted_sender} onChange={e=>field('trusted_sender',e.target.value)} placeholder="Copy from a genuine UOB alert"/></label><div className="form-grid"><label>Account’s last 4 digits<input inputMode="numeric" maxLength={4} value={form.account_suffix} onChange={e=>field('account_suffix',e.target.value)}/></label><label>Import alerts received since<input type="datetime-local" required value={form.start_time} onChange={e=>field('start_time',e.target.value)}/></label></div><p className="muted small">Start time uses this laptop’s timezone. Only matching alerts in the Inbox are read; keep UOB alerts there.</p><div className="notice"><ShieldCheck size={18}/><span>Microsoft grants mailbox-wide read permission. The app processes only the exact sender, subject, account suffix and start time above.</span></div><div className="settings-actions"><Button variant="primary" disabled={busy}>Save settings</Button><Button type="button" disabled={busy} onClick={()=>act(()=>post('/outlook/connect'),'Sign-in opened in your browser. Complete Microsoft consent there.')}><Link2 size={16}/>Connect Outlook</Button>{settings.mail_enabled && <button type="button" className="text-button" onClick={()=>act(()=>post('/outlook/disconnect'),'Outlook disconnected.')}>Disconnect</button>}</div></form><div className="connection-status"><span className={`status-dot ${settings.mail_enabled?'':'amber'}`}/>{settings.sync_status}{settings.mail_username&&<small>Mailbox: {settings.mail_username}</small>}<small>Last successful sync: {time(settings.last_sync)}</small></div></section><aside className="setup-guide panel"><div className="guide-icon"><Mail size={24}/></div><h2>One-time email setup</h2><p>Connect your own Microsoft app to keep this raffle entirely local.</p><ol><li>Register an app in Microsoft Entra. Choose support for <strong>personal Microsoft accounts</strong>.</li><li>Add a <strong>Mobile and desktop</strong> redirect URI: <code>http://localhost</code>.</li><li>Add Microsoft Graph <strong>delegated Mail.Read</strong> permission. Do not create a client secret.</li><li>Copy the application ID here. Check a genuine alert for its exact sender and your account suffix.</li><li>Save, connect, and sign in to the Outlook mailbox receiving the alerts. Allow Keychain access if prompted.</li></ol><a className="text-button" href="https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app" target="_blank" rel="noreferrer">Microsoft registration guide <ArrowUpRight size={15}/></a><div className="notice warning"><CircleAlert size={18}/><span>App registration requires access to an Entra tenant. A personal Outlook login alone may not provide it. If setup is unavailable, manual entry and pasted alerts work independently.</span></div><p className="small muted">Before the wedding, test actual $5, $20 and $50 alerts. Emails can be late or missing; verify purchases against your bank record.</p></aside></div>;
+  const [mode, setMode] = useState("view"),
+    [reason, setReason] = useState(""),
+    [checked, setChecked] = useState(false),
+    [allocationId, setAllocationId] = useState(""),
+    [guestId, setGuestId] = useState("");
+  return (
+    <Modal
+      title={money(payment.amount_cents) + " payment"}
+      eyebrow={payment.id}
+      onClose={onClose}
+      wide
+    >
+      <div className="detail-meta">
+        <Badge tone={payment.status === "confirmed" ? "green" : "gold"}>
+          {payment.status}
+        </Badge>
+        <span>{dateTime(payment.confirmed_at || payment.created_at)}</span>
+      </div>
+      <div className="detail-allocations">
+        {payment.allocations.map((a) => (
+          <div key={a.id}>
+            <div>
+              <strong>{a.name}</strong>
+              <small>
+                Table {a.table_no || "—"} · {a.first_ticket}–
+                {a.first_ticket + a.count - 1}
+              </small>
+            </div>
+            <div>
+              <strong>{a.count} tickets</strong>
+              <small>{money(a.amount_cents)}</small>
+            </div>
+            {payment.status === "confirmed" && (
+              <button
+                className="text-button"
+                onClick={() => {
+                  setMode("reassign");
+                  setAllocationId(a.id);
+                  setGuestId(a.guest_id);
+                  setReason("");
+                }}
+              >
+                Change guest
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+      {payment.note && <p className="notice">{payment.note}</p>}
+      {mode === "reassign" && (
+        <div className="correction-box">
+          <h3>Correct the guest</h3>
+          <GuestPicker guests={guests} value={guestId} onChange={setGuestId} />
+          <label>
+            Reason
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Why is this guest being changed?"
+            />
+          </label>
+          <Button
+            variant="primary"
+            disabled={busy || !guestId || reason.trim().length < 3}
+            onClick={() =>
+              act(async () => {
+                await api(
+                  `/payments/${payment.id}/allocations/${allocationId}`,
+                  { method: "PATCH", body: { guest_id: guestId, reason } },
+                );
+                onClose();
+              }, "Guest corrected. Ticket numbers and payment amount are unchanged.")
+            }
+          >
+            Save correction
+          </Button>
+        </div>
+      )}
+      {mode === "reverse" && (
+        <div className="correction-box">
+          <div className="notice warning">
+            <CircleAlert size={20} />
+            <span>
+              Reversing removes this payment from the pot and voids all its
+              tickets. Remove the physical draw stubs. These numbers cannot be
+              resold. This does not send a bank refund.
+            </span>
+          </div>
+          <label>
+            Reason
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Explain the reversal"
+            />
+          </label>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={(e) => setChecked(e.target.checked)}
+            />
+            I will remove all affected physical stubs from the draw.
+          </label>
+          <Button
+            variant="danger"
+            disabled={busy || !checked || reason.trim().length < 3}
+            onClick={() =>
+              act(async () => {
+                await post(`/payments/${payment.id}/reverse`, { reason });
+                onClose();
+              }, "Payment reversed. Remove its physical draw stubs; those numbers are permanently void.")
+            }
+          >
+            Reverse and void tickets
+          </Button>
+        </div>
+      )}
+      <div className="modal-actions">
+        {payment.status === "confirmed" && mode === "view" && (
+          <button
+            className="text-button danger-text"
+            onClick={() => {
+              setMode("reverse");
+              setReason("");
+            }}
+          >
+            Reverse payment…
+          </button>
+        )}
+        <Button onClick={onClose}>Close</Button>
+      </div>
+    </Modal>
+  );
 }
 
 function PrizeCards({ summary, large = false }) {
-  const labels=['First prize','Second prize','Third prize','Fourth prize','Fifth prize'];
-  return <div className={`prize-cards ${large?'large':''}`}>{summary.prizes_cents.map((cents,index)=><div className={`prize-card prize-${index+1}`} key={index}><div className="prize-label">{index===0?<Trophy size={17}/>:<span className="prize-index">0{index+1}</span>}<span>{labels[index]}</span></div><strong>{money(cents)}</strong></div>)}</div>;
+  const labels = [
+    "First prize",
+    "Second prize",
+    "Third prize",
+    "Fourth prize",
+    "Fifth prize",
+  ];
+  return (
+    <div className={`prize-cards ${large ? "large" : ""}`}>
+      {summary.prizes_cents.map((cents, index) => (
+        <div className={`prize-card prize-${index + 1}`} key={index}>
+          <div className="prize-label">
+            {index === 0 ? (
+              <Trophy size={17} />
+            ) : (
+              <span className="prize-index">0{index + 1}</span>
+            )}
+            <span>{labels[index]}</span>
+          </div>
+          <strong>{money(cents)}</strong>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function Admin({ cloud = false }) {
-  const [data,setData]=useState(null), [error,setError]=useState(''), [online,setOnline]=useState(true), [page,setPage]=useState('inbox'), [filter,setFilter]=useState('pending'), [selectedId,setSelectedId]=useState(null), [search,setSearch]=useState(''), [modal,setModal]=useState(null), [busy,setBusy]=useState(false), [toast,setToast]=useState(null);
-  const dirtyRef=useRef(false), seen=useRef(new Set()), loaded=useRef(false), refreshing=useRef(false);
-  const refresh=async()=>{if(refreshing.current)return;refreshing.current=true;try{const next=await api('/state');setData(next);setOnline(true);setError('');const pending=next.payments.filter(p=>p.status==='pending');const newItems=pending.filter(p=>!seen.current.has(p.id));seen.current=new Set(pending.map(p=>p.id));if(newItems.length&&!dirtyRef.current){setPage('inbox');setFilter('pending');setSelectedId(newItems[0].id);}loaded.current=true;}catch(e){setOnline(false);if(!loaded.current)setError(e.message);}finally{refreshing.current=false;}};
-  useEffect(()=>{refresh();const interval=setInterval(refresh,5000);return()=>clearInterval(interval);},[]);
-  useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(null),toast.type==='error'?12000:6500);return()=>clearTimeout(timer);},[toast]);
-  const act=async(fn,message)=>{setBusy(true);try{await fn();await refresh();if(message)setToast({type:'success',text:message});}catch(e){setToast({type:'error',text:e.message});}finally{setBusy(false);}};
-  const leave=action=>{if(dirtyRef.current&&!window.confirm('Discard the unconfirmed allocation changes?'))return;dirtyRef.current=false;action();};
-  const download=()=>act(async()=>{const blob=await api('/excel/download',{blob:true});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='Registration and Raffle List - Live.xlsx';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);},'Downloaded the current Excel copy.');
-  if(!data)return <div className="loading-screen"><Clover size={36}/><h1>The Wedding Raffle</h1>{error?<><p>{error}</p><Button onClick={refresh}>Try again</Button>{cloud&&<SignOut/>}</>:<><LoaderCircle className="spin"/><p>Preparing your raffle desk…</p></>}</div>;
-  const {summary:s,settings,guests,payments}=data;
-  const pending=payments.filter(p=>p.status==='pending');
-  const selected=payments.find(p=>p.id===selectedId&&p.status==='pending');
-  const filtered=payments.filter(p=>(filter==='all'||p.status===filter)&&(!search||`${p.id} ${p.amount_cents/100} ${p.allocations.map(a=>a.name).join(' ')}`.toLowerCase().includes(search.toLowerCase())));
-  const nav=[['inbox',Inbox,'Payment inbox',pending.length],['guests',Users,'Guest list'],['prizes',Trophy,'Prize breakdown'],['audit',History,'Audit'],['settings',Settings2,'Settings']];
-  const sourceName=p=>({outlook:'Outlook alert',manual:'Manual entry',pasted_email:'Pasted alert'}[p.source]||p.source);
-  return <div className="app-shell"><aside className="sidebar"><a className="brand" href="/admin"><span className="brand-mark"><Clover size={26}/></span><span>The Wedding<span>RAFFLE DESK</span></span></a><div className="sidebar-label">YOUR CELEBRATION</div><nav>{nav.map(([id,Icon,label,count])=><button key={id} aria-label={label} className={`nav-item ${page===id?'active':''}`} onClick={()=>leave(()=>{setPage(id);setSearch('');})}><Icon size={19}/><span>{label}</span>{count>0&&<span className="nav-count">{count}</span>}</button>)}</nav><a className="display-nav" href="/display" target="_blank" rel="noreferrer"><Expand size={18}/><span>Live display</span><ArrowUpRight size={16}/></a><div className="sidebar-bottom"><div className="local-badge"><ShieldCheck size={15}/>{settings.cloud?'CLOUD · ADMIN ONLY':'LOCAL & PRIVATE'}</div>{settings.cloud&&<SignOut/>}<div className="inventory-note"><Ticket size={19}/><div><strong>1,500 little chances</strong><span>52000001 — 52001500</span></div></div><p>Made for a day to remember.<br/>A little luck goes a long way.</p><Leaf size={30} strokeWidth={1}/></div></aside>
-    <main className="main"><header className="page-header"><div><p className="eyebrow">A LITTLE LUCK. A LOT OF LOVE.</p><h1>{page==='inbox'?'Your raffle, beautifully in order.':page==='guests'?'Everyone on the guest list.':page==='prizes'?'Five reasons to feel lucky.':page==='audit'?'Every detail, accounted for.':'Ready for the big day.'}</h1><p className="muted">{page==='inbox'?'Match a payment. Hand over the tickets. Watch the pot grow.':page==='guests'?`${guests.length} registered guests · searchable by name, table or relationship`:page==='prizes'?'Every confirmed contribution goes into the prize pool.':page==='audit'?'Payments, physical tickets and the history behind every change.':'Your event, email connection and local records.'}</p></div><a className="button header-display" href="/display" target="_blank" rel="noreferrer"><Expand size={16}/>Open live display<ArrowUpRight size={15}/></a></header>
-    <div className="system-bar"><span><i className={`status-dot ${online?'':'amber'}`}/>{online?(settings.cloud?'Cloud app connected':'Local app connected'):'Disconnected · showing saved view'}</span><span><Mail size={14}/>{settings.cloud?'Manual payment intake':settings.mail_enabled?'Outlook connected':'Outlook not connected'}</span><button onClick={()=>settings.excel_pending?act(()=>post('/excel/retry'),'Retried Excel update.'):download()} className={settings.excel_pending?'attention':''}><FileSpreadsheet size={14}/>{settings.cloud?'Download current Excel':settings.excel_pending?'Excel update pending · retry':'Excel up to date'}{settings.excel_pending&&<RefreshCw size={12}/>}</button></div>
-    {!online&&<div className="notice warning"><CircleAlert size={18}/><span>Check your connection to the app. Unconfirmed form changes stay in this tab; purchases need a server confirmation.</span></div>}
-    {settings.excel_error&&<div className="notice warning"><CircleAlert size={18}/><span>{settings.excel_error}</span></div>}{data.backup_error&&<div className="notice warning">{data.backup_error}</div>}
-    {page==='inbox'&&<><section className="overview"><div className="pot-card"><div className="pot-card-top"><span className="eyebrow">THE PRIZE POOL</span><span className="light-badge"><span className="status-dot"/>LIVE</span></div><div className="pot-value"><span>S</span>{money(s.pot_cents)}</div><p>Growing with every little bit of luck.</p><div className="pot-card-footer"><span><ShieldCheck size={14}/>Confirmed payments only</span><span>{s.updated_at?`Updated ${time(s.updated_at)}`:'Ready for the first contribution'}</span></div><Clover className="pot-watermark" size={200} strokeWidth={0.6}/></div><div className="stats-stack"><div className="stat-card"><span className="stat-icon"><Ticket size={21}/></span><div><span>Tickets in the draw</span><strong>{integer(s.sold)} <small>/ 1,500</small></strong></div><span className="stat-trend">{Math.round(s.sold/15)}%</span></div><div className="stat-card"><span className="stat-icon gold"><Sparkles size={21}/></span><div><span>Tickets available</span><strong>{integer(s.remaining)}</strong></div>{s.voided>0&&<span className="small muted">{s.voided} void</span>}</div><div className="stat-card"><span className="stat-icon cream"><Inbox size={21}/></span><div><span>Payments to match</span><strong>{pending.length}</strong></div><span className="small muted">{pending.length?'Ready for review':'All caught up'}</span></div></div></section><div className="prizes-heading"><span className="eyebrow">A LITTLE SOMETHING TO WIN</span><span>{s.pot_cents<160000?'Prizes grow together up to a $1,600 pool':'First prize takes the pot less $1,100'}</span></div><PrizeCards summary={s}/>
-    {!settings.cloud&&!settings.mail_enabled&&<div className="connect-banner"><span className="connect-icon"><Mail size={20}/></span><div><strong>Your payment inbox, without the copy & paste.</strong><p>Connect Outlook to queue incoming UOB alerts automatically.</p></div><button className="text-button" onClick={()=>leave(()=>setPage('settings'))}>Set up Outlook<ArrowRight size={16}/></button></div>}
-    {data.mail_issues.length>0&&<div className="panel mail-issues"><h3><CircleAlert size={18}/> {data.mail_issues.length} bank alert{data.mail_issues.length>1?'s':''} need manual review</h3>{data.mail_issues.map(issue=><div key={issue.message_id}><p>{issue.error} · {dateTime(issue.received_at)}</p><div>{mailLink(issue.source_link)&&<a className="text-button" href={mailLink(issue.source_link)} target="_blank" rel="noreferrer">Open alert<ArrowUpRight size={13}/></a>}<Button onClick={()=>setModal({type:'manual'})}>Record manually</Button><button className="text-button" onClick={()=>{const reason=window.prompt('After checking the alert, explain how it was resolved:');if(reason?.trim().length>=3)act(()=>post(`/mail-issues/${encodeURIComponent(issue.message_id)}/resolve`,{reason}),'Alert issue resolved.');}}>Mark resolved…</button></div></div>)}</div>}
-    <section className="inbox-layout"><div className="panel inbox-panel"><div className="panel-heading"><div><h2>Payment inbox <span className="heading-count">{pending.length}</span></h2><p>Every contribution starts here.</p></div><Button variant="primary small-button" onClick={()=>setModal({type:'manual'})}><Plus size={16}/>Record payment</Button></div><div className="inbox-tools"><div className="tabs">{[['pending','To match'],['confirmed','Confirmed'],['all','All records']].map(([id,label])=><button key={id} className={filter===id?'active':''} onClick={()=>setFilter(id)}>{label}{id==='pending'&&<span>{pending.length}</span>}</button>)}</div>{filter!=='pending'&&<input className="search-input" placeholder="Search payments or guests" value={search} onChange={e=>setSearch(e.target.value)} aria-label="Search payments"/>}</div>
-    {filtered.length===0?<Empty title={filter==='pending'?'A quiet inbox. A lovely beginning.':'No payments here yet.'} icon={filter==='pending'?Inbox:History} action={filter==='pending'?<button className="text-button" onClick={()=>setModal({type:'manual'})}>Record your first payment<ArrowRight size={15}/></button>:null}>{filter==='pending'?'Incoming bank alerts will appear here, ready to match to a guest. You can also record a transfer manually.':'Confirmed purchases and their ticket ranges will appear here.'}</Empty>:<div className="payment-list">{filtered.map(p=><button key={p.id} className={`payment-row ${selectedId===p.id?'selected':''}`} onClick={()=>p.status==='pending'?leave(()=>setSelectedId(p.id)):setModal({type:'detail',id:p.id})}><span className={`payment-row-icon ${p.status==='reversed'?'void':''}`}>{p.status==='confirmed'?<Check size={19}/>:<ArrowDownLeft size={19}/>}</span><div className="payment-row-main"><strong>{money(p.amount_cents)}</strong><span>{p.allocations.length?p.allocations.map(a=>a.name).join(', '):sourceName(p)}{p.possible_duplicates.length>0&&' · Check similar alert'}</span></div><div className="payment-row-meta"><Badge tone={p.status==='confirmed'?'green':p.status==='pending'?'gold':''}>{p.status==='pending'?`${p.ticket_entitlement??'—'} entries`:p.status}</Badge><small>{time(p.bank_time||p.created_at)}</small></div><ChevronRight size={16}/></button>)}</div>}<div className="panel-footer"><ShieldCheck size={14}/>Pending payments are not included in the prize pool.</div></div>
-    <div className="panel match-panel"><div className="panel-heading"><div><h2>Guest & tickets</h2><p>A name for every lucky number.</p></div><Ticket size={20}/></div>{selected?<AllocationForm key={selected.id} payment={selected} guests={guests} occupiedRanges={payments.filter(p => ['confirmed','reversed'].includes(p.status)).flatMap(p => p.allocations.map(a => ({first:a.first_ticket,last:a.first_ticket+a.count-1})))} act={act} busy={busy} dirtyRef={dirtyRef} onConfirmed={()=>setSelectedId(null)} onIgnore={()=>{const reason=window.prompt('Why should this payment be ignored?');if(reason?.trim().length>=3)act(async()=>{await post(`/payments/${selected.id}/ignore`,{reason});dirtyRef.current=false;setSelectedId(null);},'Payment ignored. It remains in the audit history.');}}/>:<><Empty icon={Users} title="Let’s find the lucky guest.">Select a payment from the inbox to match its amount, guest and physical tickets.</Empty><div className="how-it-works"><span className="eyebrow">THREE LITTLE STEPS</span>{[['01','Select the guest','Search your registered wedding guests.'],['02','Check the tickets','The next available range is prefilled.'],['03','Confirm & celebrate','The live pot and Excel update together.']].map(([n,title,sub])=><div key={n}><span>{n}</span><div><strong>{title}</strong><p>{sub}</p></div></div>)}</div></>}</div></section></>}
-    {page==='guests'&&<GuestList guests={guests}/>}
-    {page==='prizes'&&<><div className="prize-overview panel"><p className="eyebrow">THE CURRENT POOL</p><h2>S{money(s.pot_cents)}</h2><p>Five prizes. One unforgettable celebration.</p><PrizeCards summary={s} large/></div><div className="rules-grid"><section className="panel rule-panel"><Trophy size={24}/><h2>When the pot reaches $1,600</h2><p>First prize receives the pot minus $1,100. Second to fifth prizes are $500, $300, $200 and $100.</p></section><section className="panel rule-panel"><Sparkles size={24}/><h2>While the pool is growing</h2><p>Below $1,600, prizes scale in the ratio 5 : 5 : 3 : 2 : 1. First and second are equal. Every cent is allocated to a prize.</p></section></div></>}
-    {page==='audit'&&<AuditPage loadReports={loadAuditReports} onDownload={download} busy={busy} excelPending={settings.excel_pending}/> }
-    {page==='settings'&&<SettingsPage settings={settings} act={act} busy={busy}/>}
-    <footer className="main-footer"><span><Clover size={14}/>A little luck, thoughtfully kept.</span><div><button onClick={download}><Download size={14}/>Export Excel</button><button onClick={()=>act(async()=>{if(!settings.cloud){await post('/backups');return;}const blob=await api('/backups',{method:'POST',blob:true});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='raffle-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);},settings.cloud?'Records backup downloaded.':'Local database backup created.')}><ShieldCheck size={14}/>Back up records</button></div></footer></main>
-    {modal?.type==='manual'&&<ManualModal onClose={()=>setModal(null)} act={act} busy={busy} onCreated={id=>{leave(()=>{setPage('inbox');setFilter('pending');setSelectedId(id);});setModal(null);}}/>}
-    {modal?.type==='detail'&&payments.find(p=>p.id===modal.id)&&<PaymentDetail payment={payments.find(p=>p.id===modal.id)} guests={guests} act={act} busy={busy} onClose={()=>setModal(null)}/>}
-    {toast&&<div className={`toast ${toast.type}`} role={toast.type==='error'?'alert':'status'}>{toast.type==='error'?<CircleAlert size={20}/>:<CheckCircle2 size={20}/>}<span>{toast.text}</span><button className="icon-button" aria-label="Dismiss notification" onClick={()=>setToast(null)}><X size={16}/></button></div>}
-  </div>;
+  const [data, setData] = useState(null),
+    [error, setError] = useState(""),
+    [online, setOnline] = useState(true),
+    [page, setPage] = useState("inbox"),
+    [filter, setFilter] = useState("pending"),
+    [selectedId, setSelectedId] = useState(null),
+    [search, setSearch] = useState(""),
+    [modal, setModal] = useState(null),
+    [busy, setBusy] = useState(false),
+    [toast, setToast] = useState(null);
+  const dirtyRef = useRef(false),
+    seen = useRef(new Set()),
+    loaded = useRef(false),
+    refreshing = useRef(false);
+  const refresh = async () => {
+    if (refreshing.current) return;
+    refreshing.current = true;
+    try {
+      const next = await api("/state");
+      setData(next);
+      setOnline(true);
+      setError("");
+      const pending = next.payments.filter((p) => p.status === "pending");
+      const newItems = pending.filter((p) => !seen.current.has(p.id));
+      seen.current = new Set(pending.map((p) => p.id));
+      if (newItems.length && !dirtyRef.current) {
+        setPage("inbox");
+        setFilter("pending");
+        setSelectedId(newItems[0].id);
+      }
+      loaded.current = true;
+    } catch (e) {
+      setOnline(false);
+      if (!loaded.current) setError(e.message);
+    } finally {
+      refreshing.current = false;
+    }
+  };
+  useEffect(() => {
+    refresh();
+    const interval = setInterval(refresh, 5000);
+    return () => clearInterval(interval);
+  }, []);
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(
+      () => setToast(null),
+      toast.type === "error" ? 12000 : 6500,
+    );
+    return () => clearTimeout(timer);
+  }, [toast]);
+  const act = async (fn, message) => {
+    setBusy(true);
+    try {
+      await fn();
+      await refresh();
+      if (message) setToast({ type: "success", text: message });
+    } catch (e) {
+      setToast({ type: "error", text: e.message });
+    } finally {
+      setBusy(false);
+    }
+  };
+  const leave = (action) => {
+    if (dirtyRef.current && !window.confirm("Discard the unsaved changes?"))
+      return;
+    dirtyRef.current = false;
+    action();
+  };
+  const download = () =>
+    act(async () => {
+      const blob = await api("/excel/download", { blob: true });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "Registration and Raffle List - Live.xlsx";
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, "Downloaded the current Excel copy.");
+  if (!data)
+    return (
+      <div className="loading-screen">
+        <Clover size={36} />
+        <h1>The Wedding Raffle</h1>
+        {error ? (
+          <>
+            <p>{error}</p>
+            <Button onClick={refresh}>Try again</Button>
+            {cloud && <SignOut />}
+          </>
+        ) : (
+          <>
+            <LoaderCircle className="spin" />
+            <p>Preparing your raffle desk…</p>
+          </>
+        )}
+      </div>
+    );
+  const { summary: s, settings, guests, payments } = data;
+  const pending = payments.filter((p) => p.status === "pending");
+  const selected = payments.find(
+    (p) => p.id === selectedId && p.status === "pending",
+  );
+  const filtered = payments.filter(
+    (p) =>
+      (filter === "all" || p.status === filter) &&
+      (!search ||
+        `${p.id} ${p.amount_cents / 100} ${p.allocations.map((a) => a.name).join(" ")}`
+          .toLowerCase()
+          .includes(search.toLowerCase())),
+  );
+  const nav = [
+    ["inbox", Inbox, "Payment inbox", pending.length],
+    ["guests", Users, "Guest list"],
+    ["prizes", Trophy, "Prize breakdown"],
+    ["audit", History, "Audit"],
+    ["settings", Settings2, "Settings"],
+  ];
+  const sourceName = (p) =>
+    ({
+      outlook: "Outlook alert",
+      manual: "Manual entry",
+      pasted_email: "Pasted alert",
+    })[p.source] || p.source;
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <a className="brand" href="/admin">
+          <span className="brand-mark">
+            <Clover size={26} />
+          </span>
+          <span>
+            The Wedding<span>RAFFLE DESK</span>
+          </span>
+        </a>
+        <div className="sidebar-label">YOUR CELEBRATION</div>
+        <nav>
+          {nav.map(([id, Icon, label, count]) => (
+            <button
+              key={id}
+              aria-label={label}
+              className={`nav-item ${page === id ? "active" : ""}`}
+              onClick={() =>
+                leave(() => {
+                  setPage(id);
+                  setSearch("");
+                })
+              }
+            >
+              <Icon size={19} />
+              <span>{label}</span>
+              {count > 0 && <span className="nav-count">{count}</span>}
+            </button>
+          ))}
+        </nav>
+        <a
+          className="display-nav"
+          href="/display"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <Expand size={18} />
+          <span>Live display</span>
+          <ArrowUpRight size={16} />
+        </a>
+        <div className="sidebar-bottom">
+          <div className="local-badge">
+            <ShieldCheck size={15} />
+            {settings.cloud ? "CLOUD · ADMIN ONLY" : "LOCAL & PRIVATE"}
+          </div>
+          {settings.cloud && <SignOut />}
+          <div className="inventory-note">
+            <Ticket size={19} />
+            <div>
+              <strong>1,500 little chances</strong>
+              <span>52000001 — 52001500</span>
+            </div>
+          </div>
+          <p>
+            Made for a day to remember.
+            <br />A little luck goes a long way.
+          </p>
+          <Leaf size={30} strokeWidth={1} />
+        </div>
+      </aside>
+      <main className="main">
+        <header className="page-header">
+          <div>
+            <p className="eyebrow">A LITTLE LUCK. A LOT OF LOVE.</p>
+            <h1>
+              {page === "inbox"
+                ? "Your raffle, beautifully in order."
+                : page === "guests"
+                  ? "Everyone on the guest list."
+                  : page === "prizes"
+                    ? "Five reasons to feel lucky."
+                    : page === "audit"
+                      ? "Every detail, accounted for."
+                      : "Ready for the big day."}
+            </h1>
+            <p className="muted">
+              {page === "inbox"
+                ? "Match a payment. Hand over the tickets. Watch the pot grow."
+                : page === "guests"
+                  ? `${guests.length} registered guests · searchable by name, table or relationship`
+                  : page === "prizes"
+                    ? "Every confirmed contribution goes into the prize pool."
+                    : page === "audit"
+                      ? "Payments, physical tickets and the history behind every change."
+                      : settings.cloud
+                        ? "Your event display and cloud records."
+                        : "Your event, email connection and local records."}
+            </p>
+          </div>
+          <a
+            className="button header-display"
+            href="/display"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <Expand size={16} />
+            Open live display
+            <ArrowUpRight size={15} />
+          </a>
+        </header>
+        <div className="system-bar">
+          <span>
+            <i className={`status-dot ${online ? "" : "amber"}`} />
+            {online
+              ? settings.cloud
+                ? "Cloud app connected"
+                : "Local app connected"
+              : "Disconnected · showing saved view"}
+          </span>
+          <span>
+            <Mail size={14} />
+            {settings.cloud
+              ? "Manual payment intake"
+              : settings.mail_enabled
+                ? "Outlook connected"
+                : "Outlook not connected"}
+          </span>
+          <button
+            onClick={() =>
+              settings.excel_pending
+                ? act(() => post("/excel/retry"), "Retried Excel update.")
+                : download()
+            }
+            className={settings.excel_pending ? "attention" : ""}
+          >
+            <FileSpreadsheet size={14} />
+            {settings.cloud
+              ? "Download current Excel"
+              : settings.excel_pending
+                ? "Excel update pending · retry"
+                : "Excel up to date"}
+            {settings.excel_pending && <RefreshCw size={12} />}
+          </button>
+        </div>
+        {!online && (
+          <div className="notice warning">
+            <CircleAlert size={18} />
+            <span>
+              Check your connection to the app. Unconfirmed form changes stay in
+              this tab; purchases need a server confirmation.
+            </span>
+          </div>
+        )}
+        {settings.excel_error && (
+          <div className="notice warning">
+            <CircleAlert size={18} />
+            <span>{settings.excel_error}</span>
+          </div>
+        )}
+        {data.backup_error && (
+          <div className="notice warning">{data.backup_error}</div>
+        )}
+        {page === "inbox" && (
+          <>
+            <section className="overview">
+              <div className="pot-card">
+                <div className="pot-card-top">
+                  <span className="eyebrow">THE PRIZE POOL</span>
+                  <span className="light-badge">
+                    <span className="status-dot" />
+                    LIVE
+                  </span>
+                </div>
+                <div className="pot-value">
+                  <span>S</span>
+                  {money(s.pot_cents)}
+                </div>
+                <p>Growing with every little bit of luck.</p>
+                <div className="pot-card-footer">
+                  <span>
+                    <ShieldCheck size={14} />
+                    Confirmed payments only
+                  </span>
+                  <span>
+                    {s.updated_at
+                      ? `Updated ${time(s.updated_at)}`
+                      : "Ready for the first contribution"}
+                  </span>
+                </div>
+                <Clover
+                  className="pot-watermark"
+                  size={200}
+                  strokeWidth={0.6}
+                />
+              </div>
+              <div className="stats-stack">
+                <div className="stat-card">
+                  <span className="stat-icon">
+                    <Ticket size={21} />
+                  </span>
+                  <div>
+                    <span>Tickets in the draw</span>
+                    <strong>
+                      {integer(s.sold)} <small>/ 1,500</small>
+                    </strong>
+                  </div>
+                  <span className="stat-trend">{Math.round(s.sold / 15)}%</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-icon gold">
+                    <Sparkles size={21} />
+                  </span>
+                  <div>
+                    <span>Tickets available</span>
+                    <strong>{integer(s.remaining)}</strong>
+                  </div>
+                  {s.voided > 0 && (
+                    <span className="small muted">{s.voided} void</span>
+                  )}
+                </div>
+                <div className="stat-card">
+                  <span className="stat-icon cream">
+                    <Inbox size={21} />
+                  </span>
+                  <div>
+                    <span>Payments to match</span>
+                    <strong>{pending.length}</strong>
+                  </div>
+                  <span className="small muted">
+                    {pending.length ? "Ready for review" : "All caught up"}
+                  </span>
+                </div>
+              </div>
+            </section>
+            <div className="prizes-heading">
+              <span className="eyebrow">A LITTLE SOMETHING TO WIN</span>
+              <span>
+                {s.pot_cents < 160000
+                  ? "Prizes grow together up to a $1,600 pool"
+                  : "First prize takes the pot less $1,100"}
+              </span>
+            </div>
+            <PrizeCards summary={s} />
+            {!settings.cloud && !settings.mail_enabled && (
+              <div className="connect-banner">
+                <span className="connect-icon">
+                  <Mail size={20} />
+                </span>
+                <div>
+                  <strong>Your payment inbox, without the copy & paste.</strong>
+                  <p>
+                    Connect Outlook to queue incoming UOB alerts automatically.
+                  </p>
+                </div>
+                <button
+                  className="text-button"
+                  onClick={() => leave(() => setPage("settings"))}
+                >
+                  Set up Outlook
+                  <ArrowRight size={16} />
+                </button>
+              </div>
+            )}
+            {data.mail_issues.length > 0 && (
+              <div className="panel mail-issues">
+                <h3>
+                  <CircleAlert size={18} /> {data.mail_issues.length} bank alert
+                  {data.mail_issues.length > 1 ? "s" : ""} need manual review
+                </h3>
+                {data.mail_issues.map((issue) => (
+                  <div key={issue.message_id}>
+                    <p>
+                      {issue.error} · {dateTime(issue.received_at)}
+                    </p>
+                    <div>
+                      {mailLink(issue.source_link) && (
+                        <a
+                          className="text-button"
+                          href={mailLink(issue.source_link)}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Open alert
+                          <ArrowUpRight size={13} />
+                        </a>
+                      )}
+                      <Button onClick={() => setModal({ type: "manual" })}>
+                        Record manually
+                      </Button>
+                      <button
+                        className="text-button"
+                        onClick={() => {
+                          const reason = window.prompt(
+                            "After checking the alert, explain how it was resolved:",
+                          );
+                          if (reason?.trim().length >= 3)
+                            act(
+                              () =>
+                                post(
+                                  `/mail-issues/${encodeURIComponent(issue.message_id)}/resolve`,
+                                  { reason },
+                                ),
+                              "Alert issue resolved.",
+                            );
+                        }}
+                      >
+                        Mark resolved…
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <section className="inbox-layout">
+              <div className="panel inbox-panel">
+                <div className="panel-heading">
+                  <div>
+                    <h2>
+                      Payment inbox{" "}
+                      <span className="heading-count">{pending.length}</span>
+                    </h2>
+                    <p>Every contribution starts here.</p>
+                  </div>
+                  <Button
+                    variant="primary small-button"
+                    onClick={() => setModal({ type: "manual" })}
+                  >
+                    <Plus size={16} />
+                    Record payment
+                  </Button>
+                </div>
+                <div className="inbox-tools">
+                  <div className="tabs">
+                    {[
+                      ["pending", "To match"],
+                      ["confirmed", "Confirmed"],
+                      ["all", "All records"],
+                    ].map(([id, label]) => (
+                      <button
+                        key={id}
+                        className={filter === id ? "active" : ""}
+                        onClick={() => setFilter(id)}
+                      >
+                        {label}
+                        {id === "pending" && <span>{pending.length}</span>}
+                      </button>
+                    ))}
+                  </div>
+                  {filter !== "pending" && (
+                    <input
+                      className="search-input"
+                      placeholder="Search payments or guests"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      aria-label="Search payments"
+                    />
+                  )}
+                </div>
+                {filtered.length === 0 ? (
+                  <Empty
+                    title={
+                      filter === "pending"
+                        ? "A quiet inbox. A lovely beginning."
+                        : "No payments here yet."
+                    }
+                    icon={filter === "pending" ? Inbox : History}
+                    action={
+                      filter === "pending" ? (
+                        <button
+                          className="text-button"
+                          onClick={() => setModal({ type: "manual" })}
+                        >
+                          Record your first payment
+                          <ArrowRight size={15} />
+                        </button>
+                      ) : null
+                    }
+                  >
+                    {filter === "pending"
+                      ? settings.cloud
+                        ? "Use Record payment to enter a transfer and allocate its tickets in one step. Existing pending payments can still be reviewed here."
+                        : "Incoming bank alerts will appear here, ready to match to a guest. You can also record a transfer manually."
+                      : "Confirmed purchases and their ticket ranges will appear here."}
+                  </Empty>
+                ) : (
+                  <div className="payment-list">
+                    {filtered.map((p) => (
+                      <button
+                        key={p.id}
+                        className={`payment-row ${selectedId === p.id ? "selected" : ""}`}
+                        onClick={() =>
+                          p.status === "pending"
+                            ? leave(() => setSelectedId(p.id))
+                            : setModal({ type: "detail", id: p.id })
+                        }
+                      >
+                        <span
+                          className={`payment-row-icon ${p.status === "reversed" ? "void" : ""}`}
+                        >
+                          {p.status === "confirmed" ? (
+                            <Check size={19} />
+                          ) : (
+                            <ArrowDownLeft size={19} />
+                          )}
+                        </span>
+                        <div className="payment-row-main">
+                          <strong>{money(p.amount_cents)}</strong>
+                          <span>
+                            {p.allocations.length
+                              ? p.allocations.map((a) => a.name).join(", ")
+                              : sourceName(p)}
+                            {p.possible_duplicates.length > 0 &&
+                              " · Check similar alert"}
+                          </span>
+                        </div>
+                        <div className="payment-row-meta">
+                          <Badge
+                            tone={
+                              p.status === "confirmed"
+                                ? "green"
+                                : p.status === "pending"
+                                  ? "gold"
+                                  : ""
+                            }
+                          >
+                            {p.status === "pending"
+                              ? `${p.ticket_entitlement ?? "—"} entries`
+                              : p.status}
+                          </Badge>
+                          <small>{time(p.bank_time || p.created_at)}</small>
+                        </div>
+                        <ChevronRight size={16} />
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="panel-footer">
+                  <ShieldCheck size={14} />
+                  Pending payments are not included in the prize pool.
+                </div>
+              </div>
+              <div className="panel match-panel">
+                <div className="panel-heading">
+                  <div>
+                    <h2>Guest & tickets</h2>
+                    <p>A name for every lucky number.</p>
+                  </div>
+                  <Ticket size={20} />
+                </div>
+                {selected ? (
+                  <AllocationForm
+                    key={selected.id}
+                    payment={selected}
+                    guests={guests}
+                    occupiedRanges={payments
+                      .filter((p) =>
+                        ["confirmed", "reversed"].includes(p.status),
+                      )
+                      .flatMap((p) =>
+                        p.allocations.map((a) => ({
+                          first: a.first_ticket,
+                          last: a.first_ticket + a.count - 1,
+                        })),
+                      )}
+                    act={act}
+                    busy={busy}
+                    dirtyRef={dirtyRef}
+                    onConfirmed={() => setSelectedId(null)}
+                    onIgnore={() => {
+                      const reason = window.prompt(
+                        "Why should this payment be ignored?",
+                      );
+                      if (reason?.trim().length >= 3)
+                        act(async () => {
+                          await post(`/payments/${selected.id}/ignore`, {
+                            reason,
+                          });
+                          dirtyRef.current = false;
+                          setSelectedId(null);
+                        }, "Payment ignored. It remains in the audit history.");
+                    }}
+                  />
+                ) : (
+                  <>
+                    <Empty icon={Users} title="Let’s find the lucky guest.">
+                      {settings.cloud
+                        ? "Click Record payment to enter the amount, select the guests and assign their physical tickets together."
+                        : "Select a payment from the inbox to match its amount, guest and physical tickets."}
+                    </Empty>
+                    <div className="how-it-works">
+                      <span className="eyebrow">THREE LITTLE STEPS</span>
+                      {[
+                        [
+                          "01",
+                          "Select the guest",
+                          "Search your registered wedding guests.",
+                        ],
+                        [
+                          "02",
+                          "Check the tickets",
+                          "The next available range is prefilled.",
+                        ],
+                        [
+                          "03",
+                          "Confirm & celebrate",
+                          "The live pot and Excel update together.",
+                        ],
+                      ].map(([n, title, sub]) => (
+                        <div key={n}>
+                          <span>{n}</span>
+                          <div>
+                            <strong>{title}</strong>
+                            <p>{sub}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </section>
+          </>
+        )}
+        {page === "guests" && (
+          <GuestList
+            guests={guests}
+            busy={busy}
+            onNew={() => leave(() => setModal({ type: "guest" }))}
+            onEdit={(guest) => leave(() => setModal({ type: "guest", guest }))}
+            onDelete={(guest) =>
+              leave(() => setModal({ type: "delete-guest", guest }))
+            }
+          />
+        )}
+        {page === "prizes" && (
+          <>
+            <div className="prize-overview panel">
+              <p className="eyebrow">THE CURRENT POOL</p>
+              <h2>S{money(s.pot_cents)}</h2>
+              <p>Five prizes. One unforgettable celebration.</p>
+              <PrizeCards summary={s} large />
+            </div>
+            <div className="rules-grid">
+              <section className="panel rule-panel">
+                <Trophy size={24} />
+                <h2>When the pot reaches $1,600</h2>
+                <p>
+                  First prize receives the pot minus $1,100. Second to fifth
+                  prizes are $500, $300, $200 and $100.
+                </p>
+              </section>
+              <section className="panel rule-panel">
+                <Sparkles size={24} />
+                <h2>While the pool is growing</h2>
+                <p>
+                  Below $1,600, prizes scale in the ratio 5 : 5 : 3 : 2 : 1.
+                  First and second are equal. Every cent is allocated to a
+                  prize.
+                </p>
+              </section>
+            </div>
+          </>
+        )}
+        {page === "audit" && (
+          <AuditPage
+            loadReports={loadAuditReports}
+            onDownload={download}
+            busy={busy}
+            excelPending={settings.excel_pending}
+          />
+        )}
+        {page === "settings" && (
+          <SettingsPage settings={settings} act={act} busy={busy} />
+        )}
+        <footer className="main-footer">
+          <span>
+            <Clover size={14} />A little luck, thoughtfully kept.
+          </span>
+          <div>
+            <button onClick={download}>
+              <Download size={14} />
+              Export Excel
+            </button>
+            <button
+              onClick={() =>
+                act(
+                  async () => {
+                    if (!settings.cloud) {
+                      await post("/backups");
+                      return;
+                    }
+                    const blob = await api("/backups", {
+                      method: "POST",
+                      blob: true,
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = "raffle-backup.json";
+                    a.click();
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                  },
+                  settings.cloud
+                    ? "Records backup downloaded."
+                    : "Local database backup created.",
+                )
+              }
+            >
+              <ShieldCheck size={14} />
+              Back up records
+            </button>
+          </div>
+        </footer>
+      </main>
+      {modal?.type === "manual" && (
+        <ManualModal
+          onClose={() => {
+            if (!busy) leave(() => setModal(null));
+          }}
+          act={act}
+          busy={busy}
+          guests={guests}
+          dirtyRef={dirtyRef}
+          occupiedRanges={payments
+            .filter((p) => ["confirmed", "reversed"].includes(p.status))
+            .flatMap((p) =>
+              p.allocations.map((a) => ({
+                first: a.first_ticket,
+                last: a.first_ticket + a.count - 1,
+              })),
+            )}
+          onConfirmed={() => setModal(null)}
+        />
+      )}
+      {modal?.type === "guest" && (
+        <GuestEditor
+          guest={modal.guest}
+          relationships={[
+            ...new Set(guests.map((guest) => guest.guest_of).filter(Boolean)),
+          ].sort()}
+          busy={busy}
+          dirtyRef={dirtyRef}
+          onClose={() => {
+            if (!busy) leave(() => setModal(null));
+          }}
+          onSave={(body, requestId) =>
+            act(
+              async () => {
+                if (modal.guest)
+                  await api(`/guests/${modal.guest.id}`, {
+                    method: "PUT",
+                    body,
+                  });
+                else await post("/guests", { ...body, request_id: requestId });
+                dirtyRef.current = false;
+                setModal(null);
+              },
+              modal.guest ? "Guest updated." : "Guest added.",
+            )
+          }
+        />
+      )}
+      {modal?.type === "delete-guest" && (
+        <Modal
+          title="Delete guest?"
+          onClose={() => {
+            if (!busy) setModal(null);
+          }}
+        >
+          <p className="guest-delete-copy">
+            <strong>{modal.guest.name}</strong> will be removed from the guest
+            list and future purchases. Their existing payments and tickets will
+            stay in Audit and Excel. The pot will stay the same.
+          </p>
+          <div className="modal-actions">
+            <Button disabled={busy} onClick={() => setModal(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              disabled={busy}
+              onClick={() =>
+                act(async () => {
+                  await api(`/guests/${modal.guest.id}`, { method: "DELETE" });
+                  setModal(null);
+                }, "Guest deleted. Payment and ticket history preserved.")
+              }
+            >
+              <Trash2 size={16} />
+              Delete guest
+            </Button>
+          </div>
+        </Modal>
+      )}
+      {modal?.type === "detail" && payments.find((p) => p.id === modal.id) && (
+        <PaymentDetail
+          payment={payments.find((p) => p.id === modal.id)}
+          guests={guests}
+          act={act}
+          busy={busy}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {toast && (
+        <div
+          className={`toast ${toast.type}`}
+          role={toast.type === "error" ? "alert" : "status"}
+        >
+          {toast.type === "error" ? (
+            <CircleAlert size={20} />
+          ) : (
+            <CheckCircle2 size={20} />
+          )}
+          <span>{toast.text}</span>
+          <button
+            className="icon-button"
+            aria-label="Dismiss notification"
+            onClick={() => setToast(null)}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function LiveDisplay() {
-  const [summary,setSummary]=useState(null),[connected,setConnected]=useState(false);
-  useEffect(()=>{
-    document.title='The Wedding Raffle · Live';
-    let active=true, inFlight=false;
-    const refresh=async()=>{if(inFlight)return;inFlight=true;try{const response=await fetch('/api/display');if(!response.ok)throw new Error();const value=await response.json();if(active){setSummary(value);setConnected(true);}}catch{if(active)setConnected(false);}finally{inFlight=false;}};
-    refresh();const timer=setInterval(refresh,2000);
-    return()=>{active=false;clearInterval(timer);};
-  },[]);
-  return <main className="live-display"><div className="display-orbit orbit-one"/><div className="display-orbit orbit-two"/><button className="fullscreen-button icon-button" aria-label="Enter fullscreen" onClick={()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}><Expand size={22}/></button><div className="display-brand"><Leaf size={21} strokeWidth={1}/><span>THE WEDDING RAFFLE</span><Leaf size={21} strokeWidth={1}/></div><h1>{summary?.event_title||'A little luck. A lot of love.'}</h1><div className="display-flourish"><span/><Sparkles size={20} strokeWidth={1}/><span/></div><p className="display-pool-label">OUR GROWING PRIZE POOL</p><div className="display-pot">{summary?<><span>S$</span>{new Intl.NumberFormat('en-SG',{minimumFractionDigits:2,maximumFractionDigits:2}).format(summary.pot_cents/100)}</>:<span className="display-loading">Preparing the celebration…</span>}</div><p className="display-subtitle">A little contribution. A chance at something wonderful.</p>{summary&&<><div className="display-prizes"><PrizeCards summary={summary} large/></div><div className="display-inventory"><span><Ticket size={19}/><strong>{integer(summary.sold)}</strong> tickets in the draw</span><i/><span><strong>{integer(summary.remaining)}</strong> chances still waiting</span>{summary.voided>0&&<><i/><span>{integer(summary.voided)} tickets voided</span></>}</div></>}<div className="display-bottom"><span className={`display-status ${connected?'':'offline'}`}><span className={`status-dot ${connected?'':'amber'}`}/>{connected?'Live from the raffle desk':summary?'Reconnecting · showing last confirmed total':'Waiting for the raffle desk'}</span><span>{summary?.updated_at?`Updated ${time(summary.updated_at)}`:'Five prizes. One lovely celebration.'}</span></div></main>;
+  const [summary, setSummary] = useState(null),
+    [connected, setConnected] = useState(false);
+  useEffect(() => {
+    document.title = "The Wedding Raffle · Live";
+    let active = true,
+      inFlight = false;
+    const refresh = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const response = await fetch("/api/display");
+        if (!response.ok) throw new Error();
+        const value = await response.json();
+        if (active) {
+          setSummary(value);
+          setConnected(true);
+        }
+      } catch {
+        if (active) setConnected(false);
+      } finally {
+        inFlight = false;
+      }
+    };
+    refresh();
+    const timer = setInterval(refresh, 2000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, []);
+  return (
+    <main className="live-display">
+      <div className="display-orbit orbit-one" />
+      <div className="display-orbit orbit-two" />
+      <button
+        className="fullscreen-button icon-button"
+        aria-label="Enter fullscreen"
+        onClick={() =>
+          document.fullscreenElement
+            ? document.exitFullscreen()
+            : document.documentElement.requestFullscreen()
+        }
+      >
+        <Expand size={22} />
+      </button>
+      <div className="display-brand">
+        <Leaf size={21} strokeWidth={1} />
+        <span>THE WEDDING RAFFLE</span>
+        <Leaf size={21} strokeWidth={1} />
+      </div>
+      <h1>{summary?.event_title || "A little luck. A lot of love."}</h1>
+      <div className="display-flourish">
+        <span />
+        <Sparkles size={20} strokeWidth={1} />
+        <span />
+      </div>
+      <p className="display-pool-label">OUR GROWING PRIZE POOL</p>
+      <div className="display-pot">
+        {summary ? (
+          <>
+            <span>S$</span>
+            {new Intl.NumberFormat("en-SG", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }).format(summary.pot_cents / 100)}
+          </>
+        ) : (
+          <span className="display-loading">Preparing the celebration…</span>
+        )}
+      </div>
+      <p className="display-subtitle">
+        A little contribution. A chance at something wonderful.
+      </p>
+      {summary && (
+        <>
+          <div className="display-prizes">
+            <PrizeCards summary={summary} large />
+          </div>
+          <div className="display-inventory">
+            <span>
+              <Ticket size={19} />
+              <strong>{integer(summary.sold)}</strong> tickets in the draw
+            </span>
+            <i />
+            <span>
+              <strong>{integer(summary.remaining)}</strong> chances still
+              waiting
+            </span>
+            {summary.voided > 0 && (
+              <>
+                <i />
+                <span>{integer(summary.voided)} tickets voided</span>
+              </>
+            )}
+          </div>
+        </>
+      )}
+      <div className="display-bottom">
+        <span className={`display-status ${connected ? "" : "offline"}`}>
+          <span className={`status-dot ${connected ? "" : "amber"}`} />
+          {connected
+            ? "Live from the raffle desk"
+            : summary
+              ? "Reconnecting · showing last confirmed total"
+              : "Waiting for the raffle desk"}
+        </span>
+        <span>
+          {summary?.updated_at
+            ? `Updated ${time(summary.updated_at)}`
+            : "Five prizes. One lovely celebration."}
+        </span>
+      </div>
+    </main>
+  );
 }
 
 export { Admin, LiveDisplay, AllocationForm, ManualModal, GuestPicker };
-const root = document.getElementById('root');
-if (root) createRoot(root).render(location.pathname==='/display'?<LiveDisplay/>:<AuthGate><Admin/></AuthGate>);
+const root = document.getElementById("root");
+if (root)
+  createRoot(root).render(
+    location.pathname === "/display" ? (
+      <LiveDisplay />
+    ) : (
+      <AuthGate>
+        <Admin />
+      </AuthGate>
+    ),
+  );

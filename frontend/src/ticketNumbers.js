@@ -1,19 +1,25 @@
-export const FIRST = 52000001, LAST = 52001500;
+export const FIRST = 52000001,
+  LAST = 52001500;
 
-export const ticketFromSuffix = value => /^\d{1,4}$/.test(String(value))
-  ? Number('5200' + String(value).padStart(4, '0')) : NaN;
+export const ticketFromSuffix = (value) =>
+  /^\d{1,4}$/.test(String(value))
+    ? Number("5200" + String(value).padStart(4, "0"))
+    : NaN;
 
 function ticketRange(row) {
   const first = ticketFromSuffix(row.first);
   const count = /^\d+$/.test(String(row.count)) ? Number(row.count) : 0;
   const last = first + count - 1;
-  return Number.isInteger(first) && first >= FIRST && count > 0 && last <= LAST ? {first, last} : null;
+  return Number.isInteger(first) && first >= FIRST && count > 0 && last <= LAST
+    ? { first, last }
+    : null;
 }
 
 function nextFreeTicket(count, occupied, after) {
-  if (!Number.isInteger(count) || count < 1 || count > LAST - FIRST + 1) return null;
+  if (!Number.isInteger(count) || count < 1 || count > LAST - FIRST + 1)
+    return null;
   const ranges = [...occupied].sort((a, b) => a.first - b.first);
-  const search = start => {
+  const search = (start) => {
     let candidate = Math.max(FIRST, start);
     for (const range of ranges) {
       if (range.last < candidate) continue;
@@ -27,9 +33,18 @@ function nextFreeTicket(count, occupied, after) {
 }
 
 export function prefillTicketRows(rows, occupied) {
-  const reserved = [...occupied, ...rows.filter(row => !row.autoFirst).map(ticketRange).filter(Boolean)];
-  let cursor = occupied.reduce((next, range) => Math.max(next, range.last + 1), FIRST);
-  return rows.map(row => {
+  const reserved = [
+    ...occupied,
+    ...rows
+      .filter((row) => !row.autoFirst)
+      .map(ticketRange)
+      .filter(Boolean),
+  ];
+  let cursor = occupied.reduce(
+    (next, range) => Math.max(next, range.last + 1),
+    FIRST,
+  );
+  return rows.map((row) => {
     if (!row.autoFirst) {
       const range = ticketRange(row);
       if (range) cursor = range.last + 1;
@@ -38,10 +53,10 @@ export function prefillTicketRows(rows, occupied) {
     const count = /^\d+$/.test(String(row.count)) ? Number(row.count) : 0;
     const first = nextFreeTicket(count, reserved, cursor);
     if (first !== null) {
-      reserved.push({first, last: first + count - 1});
+      reserved.push({ first, last: first + count - 1 });
       cursor = first + count;
     }
-    const suffix = first === null ? '' : String(first).slice(4);
-    return row.first === suffix ? row : {...row, first: suffix};
+    const suffix = first === null ? "" : String(first).slice(4);
+    return row.first === suffix ? row : { ...row, first: suffix };
   });
 }

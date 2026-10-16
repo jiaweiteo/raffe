@@ -379,3 +379,94 @@ def test_audit_reports_match_all_three_excel_sheets_after_group_sales_and_correc
             assert [list(row) for row in actual[1:]]==[[None if value=='' else value for value in row] for row in expected]
     finally:
         book.close()
+
+
+def test_guest_management_preserves_identity_history_and_export(store, tmp_path):
+    guest_id = str(uuid4())
+    guest = store.create_guest(guest_id, name="  New guest  ", guest_of="Friends", table_no=12)
+    assert guest["name"] == "New guest" and guest["table_no"] == "12"
+    assert store.create_guest(guest_id, name="New guest", guest_of="Friends", table_no=12) == guest
+    assert len(store.guests()) == 252
+    rows = [allocation(store, guest=guest_id)]
+    purchase = store.create_purchase(request_id=uuid4(), amount_cents=5000, note="Verified", allocations=rows, verified=True)
+    updated = store.update_guest(guest_id, name="=Updated guest", guest_of="Family", table_no=3)
+    assert updated["id"] == guest_id and updated["source_row"] == guest["source_row"]
+    assert store.payments()[0]["allocations"][0]["name"] == "=Updated guest"
+    store.delete_guest(guest_id)
+    store.delete_guest(guest_id)
+    assert len(store.guests()) == 251
+    assert store.summary()["pot_cents"] == 5000 and store.summary()["sold"] == 15
+    removed = next(g for g in store.guests(include_deleted=True) if g["id"] == guest_id)
+    assert removed["paid_cents"] == 5000 and removed["deleted_at"]
+    with pytest.raises(RuleError, match="registered guest"):
+        store.create_purchase(request_id=uuid4(), amount_cents=5000, note="", allocations=[{**rows[0], "first_ticket": FIRST_TICKET+15}], verified=True)
+    exporter = ExcelExporter(store, tmp_path / "live.xlsx")
+    assert exporter.sync()
+    book = load_workbook(exporter.output, data_only=False)
+    row = guest["source_row"]
+    assert [book["Raffle List"].cell(row, col).value for col in range(2, 10)] == ["'=Updated guest", None, "Family", 3, 15, 50, purchase["id"], "Removed"]
+    book.close()
+    restarted = Store(store.root, SOURCE)
+    assert len(restarted.guests()) == 251 and restarted.summary()["sold"] == 15
+    actions = [a["action"] for a in store.audit()]
+    assert actions.count("guest_added") == actions.count("guest_updated") == actions.count("guest_deleted") == 1
+
+
+@pytest.mark.parametrize("fields", [{"name":" "}, {"name":"Guest","table_no":1.5}, {"name":"Guest","table_no":0}, {"name":"Guest","table_no":True}])
+def test_guest_validation_is_atomic(store, fields):
+    before = store.audit()
+    with pytest.raises(RuleError):
+        store.create_guest(str(uuid4()), **fields)
+    assert len(store.guests()) == 251 and store.audit() == before
+
+
+def test_direct_purchase_rolls_back_and_retries_without_double_counting(store):
+    key = uuid4()
+    before, summary = store.audit(), store.summary()
+    rows = [allocation(store, count=14)]
+    with pytest.raises(RuleError, match="exactly 15"):
+        store.create_purchase(request_id=key, amount_cents=5000, note="Reference", allocations=rows, verified=True)
+    assert store.payments() == [] and store.audit() == before and store.summary() == summary
+    rows[0]["count"] = 15
+    purchase = store.create_purchase(request_id=key, amount_cents=5000, note="Reference", allocations=rows, verified=True)
+    assert store.create_purchase(request_id=key, amount_cents=5000, note="Reference", allocations=rows, verified=True) == purchase
+    assert len(store.payments()) == 1 and store.summary()["sold"] == 15
+    with pytest.raises(RuleError, match="already saved"):
+        store.create_purchase(request_id=key, amount_cents=2000, note="Reference", allocations=rows, verified=True)
+    assert store.summary()["pot_cents"] == 5000
+
+
+def test_direct_purchase_cross_instance_retry_is_atomic(store):
+    key, rows = uuid4(), [allocation(store)]
+    def confirm(_):
+        return Store(store.root, SOURCE).create_purchase(request_id=key, amount_cents=5000, note="", allocations=rows, verified=True)
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results = list(pool.map(confirm, range(4)))
+    assert len({p["id"] for p in results}) == 1
+    assert store.summary()["sold"] == 15 and len(store.payments()) == 1
+
+
+def test_guest_and_direct_purchase_api_require_auth_and_validate_input(store):
+    # Cloud mode skips export on each request; it still uses exactly the shared validation rules.
+    class Auth:
+        url = "https://test-project.supabase.co"
+        async def authorized(self, header):
+            return header == "Bearer admin"
+    app = create_app(cloud=True, store=store, auth=Auth())
+    with TestClient(app) as client:
+        for method, path in [("post", "/api/guests"), ("put", "/api/guests/missing"), ("delete", "/api/guests/missing"), ("post", "/api/purchases")]:
+            assert getattr(client, method)(path).status_code == 401
+        headers = {"Authorization": "Bearer admin"}
+        guest = {"request_id":str(uuid4()), "name":"New API guest", "guest_of":"Bride", "table_no":7}
+        assert client.post("/api/guests", headers=headers, json={**guest, "table_no":7.5}).status_code == 422
+        response = client.post("/api/guests", headers=headers, json=guest)
+        assert response.status_code == 200
+        guest_id = response.json()["id"]
+        purchase = {"request_id":str(uuid4()), "amount_cents":5000, "verified":True, "allocations":[allocation(store, guest=guest_id)]}
+        result = client.post("/api/purchases", headers=headers, json=purchase)
+        assert result.status_code == 200 and result.json()["status"] == "confirmed"
+        assert client.post("/api/purchases", headers=headers, json=purchase).json()["id"] == result.json()["id"]
+        assert client.put(f"/api/guests/{guest_id}", headers=headers, json={"name":"Updated API guest", "guest_of":"Groom", "table_no":None}).status_code == 200
+        assert client.delete(f"/api/guests/{guest_id}", headers=headers).status_code == 200
+        assert len(client.get("/api/state", headers=headers).json()["guests"]) == 251
+        assert client.get("/api/display").json()["pot_cents"] == 5000

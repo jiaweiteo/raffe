@@ -228,3 +228,40 @@ def test_limited_backend_role_can_operate_but_cannot_administer_or_delete_audit(
         assert not db.execute("SELECT has_table_privilege(current_user,'raffle.audit','UPDATE')").fetchone()[0]
         assert not db.execute("SELECT has_table_privilege(current_user,'raffle.guests','INSERT')").fetchone()[0]
         assert not db.execute("SELECT has_table_privilege(current_user,'raffle.workbook_template','UPDATE')").fetchone()[0]
+
+
+def test_postgres_guest_management_and_direct_purchase_rollback_with_runtime_role(pg):
+    from uuid import uuid4
+    store, _ = pg
+    with store.connection() as db:
+        db.raw.execute((BASE / "supabase/migrations/002_backend_role.sql").read_text(), prepare=False)
+        db.raw.execute((BASE / "supabase/migrations/003_guest_management.sql").read_text(), prepare=False)
+    # Use a connection hook so each new transaction tests the actual restricted runtime permissions.
+    from contextlib import contextmanager
+    original = store.connection
+    @contextmanager
+    def runtime_connection():
+        with original() as db:
+            db.execute("SET LOCAL ROLE raffle_backend")
+            yield db
+    store.connection = runtime_connection
+    guest_id = str(uuid4())
+    guest = store.create_guest(guest_id, name="New guest", guest_of="Bride", table_no=8)
+    assert store.create_guest(guest_id, name="New guest", guest_of="Bride", table_no=8) == guest
+    store.update_guest(guest_id, name="Updated guest", guest_of="Groom", table_no=9)
+    rows = [{"guest_id":guest_id,"amount_cents":5000,"count":14,"first_ticket":FIRST_TICKET}]
+    with pytest.raises(RuleError, match="exactly 15"):
+        store.create_purchase(request_id=uuid4(), amount_cents=5000, note="", allocations=rows, verified=True)
+    assert store.payments() == []
+    rows[0]["count"] = 15
+    key = uuid4()
+    result = store.create_purchase(request_id=key, amount_cents=5000, note="", allocations=rows, verified=True)
+    assert store.create_purchase(request_id=key, amount_cents=5000, note="", allocations=rows, verified=True) == result
+    store.delete_guest(guest_id)
+    assert len(store.guests()) == 251 and len(store.guests(include_deleted=True)) == 252
+    assert store.payments()[0]["allocations"][0]["name"] == "Updated guest"
+    assert store.summary()["pot_cents"] == 5000
+    with store.connection() as db:
+        assert not db.execute("SELECT has_table_privilege(current_user,'raffle.guests','DELETE')").fetchone()[0]
+        assert not db.execute("SELECT has_column_privilege(current_user,'raffle.guests','id','UPDATE')").fetchone()[0]
+        assert not db.execute("SELECT has_table_privilege(current_user,'raffle.audit','UPDATE')").fetchone()[0]

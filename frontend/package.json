@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
-    "test": "vitest run"
+    "test": "vitest run",
+    "format": "prettier --write src index.html vite.config.js package.json",
+    "format:check": "prettier --check src index.html vite.config.js package.json"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
@@ -19,6 +21,7 @@
     "@testing-library/user-event": "^14.6.8",
     "@vitejs/plugin-react": "^5.0.0",
     "jsdom": "^26.1.0",
+    "prettier": "^3.9.10",
     "vite": "^7.0.0",
     "vitest": "^4.1.12"
   }
