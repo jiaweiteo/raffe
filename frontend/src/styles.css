@@ -670,11 +670,8 @@ small {
   white-space: nowrap;
 }
 .inbox-layout {
-  display: grid;
-  grid-template-columns: 1.22fr 1fr;
-  gap: 20px;
+  display: block;
   margin-top: 25px;
-  align-items: start;
 }
 .panel {
   border: 1px solid var(--line);
@@ -814,55 +811,7 @@ small {
   background: #fcfcf7;
   border-radius: 0 0 9px 9px;
 }
-.match-panel > .panel-heading {
-  border-bottom: 1px solid var(--line);
-}
-.match-panel > .empty {
-  padding-bottom: 12px;
-}
-.match-panel > .empty .empty-icon {
-  width: 56px;
-  height: 56px;
-}
-.how-it-works {
-  padding: 10px 30px 28px;
-}
-.how-it-works > .eyebrow {
-  font-size: 8px;
-  color: #a1a88f;
-  margin: 0 0 18px;
-  letter-spacing: 1.6px;
-}
-.how-it-works > div {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 0 0 18px;
-}
-.how-it-works > div:last-child {
-  margin-bottom: 0;
-}
-.how-it-works > div > span {
-  font-family: var(--serif);
-  font-size: 14px;
-  color: #aeb99e;
-  border-radius: 50%;
-  background: #f4f6ef;
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-}
-.how-it-works strong {
-  font-size: 10px;
-  font-weight: 550;
-}
-.how-it-works p {
-  font-size: 9px;
-  color: #a2a891;
-  margin: 4px 0 0;
-}
+
 .payment-list {
   max-height: 640px;
   overflow-y: auto;
@@ -2354,9 +2303,6 @@ td small {
   .pot-value {
     font-size: 77px;
   }
-  .inbox-layout {
-    grid-template-columns: 1.4fr 1fr;
-  }
   .prize-card > strong {
     font-size: 31px;
   }
@@ -2417,10 +2363,6 @@ td small {
   .prize-label {
     font-size: 9px;
   }
-  .inbox-layout {
-    gap: 15px;
-    grid-template-columns: 1.1fr 1fr;
-  }
   .panel-heading {
     padding: 18px 17px;
   }
@@ -2452,10 +2394,7 @@ td small {
   .empty h3 {
     font-size: 18px;
   }
-  .how-it-works {
-    padding-left: 22px;
-    padding-right: 22px;
-  }
+
   .settings-layout {
     grid-template-columns: 1.2fr 1fr;
     gap: 18px;
@@ -2673,8 +2612,6 @@ td small {
     font-size: 9px;
   }
   .inbox-layout {
-    grid-template-columns: 1fr;
-    gap: 18px;
     margin-top: 18px;
   }
   .panel-heading {
@@ -2687,12 +2624,7 @@ td small {
     padding-top: 35px;
     padding-bottom: 28px;
   }
-  .match-panel > .empty {
-    padding-top: 35px;
-  }
-  .how-it-works {
-    display: none;
-  }
+
   .allocation-form {
     padding: 20px;
   }

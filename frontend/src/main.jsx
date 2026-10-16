@@ -763,85 +763,6 @@ function Admin({ cloud = false }) {
                   Pending payments are not included in the prize pool.
                 </div>
               </div>
-              <div className="panel match-panel">
-                <div className="panel-heading">
-                  <div>
-                    <h2>Guest & tickets</h2>
-                    <p>A name for every lucky number.</p>
-                  </div>
-                  <Ticket size={20} />
-                </div>
-                {selected ? (
-                  <AllocationForm
-                    key={selected.id}
-                    payment={selected}
-                    guests={guests}
-                    occupiedRanges={payments
-                      .filter((p) =>
-                        ["confirmed", "reversed"].includes(p.status),
-                      )
-                      .flatMap((p) =>
-                        p.allocations.map((a) => ({
-                          first: a.first_ticket,
-                          last: a.first_ticket + a.count - 1,
-                        })),
-                      )}
-                    act={act}
-                    busy={busy}
-                    dirtyRef={dirtyRef}
-                    onConfirmed={() => setSelectedId(null)}
-                    onIgnore={() => {
-                      const reason = window.prompt(
-                        "Why should this payment be ignored?",
-                      );
-                      if (reason?.trim().length >= 3)
-                        act(async () => {
-                          await post(`/payments/${selected.id}/ignore`, {
-                            reason,
-                          });
-                          dirtyRef.current = false;
-                          setSelectedId(null);
-                        }, "Payment ignored. It remains in the audit history.");
-                    }}
-                  />
-                ) : (
-                  <>
-                    <Empty icon={Users} title="Let’s find the lucky guest.">
-                      {settings.cloud
-                        ? "Click Record payment to enter the amount, select the guests and assign their physical tickets together."
-                        : "Select a payment from the inbox to match its amount, guest and physical tickets."}
-                    </Empty>
-                    <div className="how-it-works">
-                      <span className="eyebrow">THREE LITTLE STEPS</span>
-                      {[
-                        [
-                          "01",
-                          "Select the guest",
-                          "Search your registered wedding guests.",
-                        ],
-                        [
-                          "02",
-                          "Check the tickets",
-                          "The next available range is prefilled.",
-                        ],
-                        [
-                          "03",
-                          "Confirm & celebrate",
-                          "The live pot and Excel update together.",
-                        ],
-                      ].map(([n, title, sub]) => (
-                        <div key={n}>
-                          <span>{n}</span>
-                          <div>
-                            <strong>{title}</strong>
-                            <p>{sub}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
             </section>
           </>
         )}
@@ -936,6 +857,46 @@ function Admin({ cloud = false }) {
           </div>
         </footer>
       </main>
+      {page === "inbox" && selected && !modal && (
+        <Modal
+          title="Match payment"
+          wide
+          onClose={() => {
+            if (!busy) leave(() => setSelectedId(null));
+          }}
+        >
+          <AllocationForm
+            key={selected.id}
+            payment={selected}
+            guests={guests}
+            occupiedRanges={payments
+              .filter((p) => ["confirmed", "reversed"].includes(p.status))
+              .flatMap((p) =>
+                p.allocations.map((a) => ({
+                  first: a.first_ticket,
+                  last: a.first_ticket + a.count - 1,
+                })),
+              )}
+            act={act}
+            busy={busy}
+            dirtyRef={dirtyRef}
+            onConfirmed={() => setSelectedId(null)}
+            onIgnore={() => {
+              const reason = window.prompt(
+                "Why should this payment be ignored?",
+              );
+              if (reason?.trim().length >= 3)
+                act(async () => {
+                  await post(`/payments/${selected.id}/ignore`, {
+                    reason,
+                  });
+                  dirtyRef.current = false;
+                  setSelectedId(null);
+                }, "Payment ignored. It remains in the audit history.");
+            }}
+          />
+        </Modal>
+      )}
       {modal?.type === "manual" && (
         <ManualModal
           onClose={() => {
