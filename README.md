@@ -76,3 +76,6 @@ Tests use temporary databases and synthetic payment/email fixtures; no real bank
 
 Production browser visual QA and real Microsoft sign-in/alert delivery still require verification on your event setup. Before collecting funds, confirm the applicable basis for paid entries: [GRA's incidental-event draw guidance](https://www.gra.gov.sg/licenses-approvals/class-licences/faq-for-incidental-games-of-chance-and-lotteries) requires draw participation to be free; wedding-only attendance does not itself establish eligibility for paid entries.
 # raffe
+# Cloud hosting
+
+For Vercel + Supabase setup, data migration and administrator sign-in, see [CLOUD-SETUP.md](CLOUD-SETUP.md). The cloud version uses manual payment intake; Outlook is deferred. Keep the registration workbook locally; it is intentionally excluded from Git and Vercel uploads.

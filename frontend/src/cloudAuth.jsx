@@ -48,7 +48,7 @@ export default function AuthGate({ children }) {
     }).catch(e => { if (alive) setError(e.message); });
     return () => { alive = false; subscription?.unsubscribe(); };
   }, []);
-  if (ready && (config.mode !== 'cloud' || session)) return children;
+  if (ready && (config.mode !== 'cloud' || session)) return React.cloneElement(children, { cloud: config.mode === 'cloud' });
   const signIn = async event => {
     event.preventDefault(); setBusy(true); setError('');
     try {

@@ -111,7 +111,7 @@ function PrizeCards({ summary, large = false }) {
   return <div className={`prize-cards ${large?'large':''}`}>{summary.prizes_cents.map((cents,index)=><div className={`prize-card prize-${index+1}`} key={index}><div className="prize-label">{index===0?<Trophy size={17}/>:<span className="prize-index">0{index+1}</span>}<span>{labels[index]}</span></div><strong>{money(cents)}</strong></div>)}</div>;
 }
 
-function Admin() {
+function Admin({ cloud = false }) {
   const [data,setData]=useState(null), [error,setError]=useState(''), [online,setOnline]=useState(true), [page,setPage]=useState('inbox'), [filter,setFilter]=useState('pending'), [selectedId,setSelectedId]=useState(null), [search,setSearch]=useState(''), [modal,setModal]=useState(null), [busy,setBusy]=useState(false), [toast,setToast]=useState(null);
   const dirtyRef=useRef(false), seen=useRef(new Set()), loaded=useRef(false), refreshing=useRef(false);
   const refresh=async()=>{if(refreshing.current)return;refreshing.current=true;try{const next=await api('/state');setData(next);setOnline(true);setError('');const pending=next.payments.filter(p=>p.status==='pending');const newItems=pending.filter(p=>!seen.current.has(p.id));seen.current=new Set(pending.map(p=>p.id));if(newItems.length&&!dirtyRef.current){setPage('inbox');setFilter('pending');setSelectedId(newItems[0].id);}loaded.current=true;}catch(e){setOnline(false);if(!loaded.current)setError(e.message);}finally{refreshing.current=false;}};
@@ -120,7 +120,7 @@ function Admin() {
   const act=async(fn,message)=>{setBusy(true);try{await fn();await refresh();if(message)setToast({type:'success',text:message});}catch(e){setToast({type:'error',text:e.message});}finally{setBusy(false);}};
   const leave=action=>{if(dirtyRef.current&&!window.confirm('Discard the unconfirmed allocation changes?'))return;dirtyRef.current=false;action();};
   const download=()=>act(async()=>{const blob=await api('/excel/download',{blob:true});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='Registration and Raffle List - Live.xlsx';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);},'Downloaded the current Excel copy.');
-  if(!data)return <div className="loading-screen"><Clover size={36}/><h1>The Wedding Raffle</h1>{error?<><p>{error}</p><Button onClick={refresh}>Try again</Button></>:<><LoaderCircle className="spin"/><p>Preparing your raffle desk…</p></>}</div>;
+  if(!data)return <div className="loading-screen"><Clover size={36}/><h1>The Wedding Raffle</h1>{error?<><p>{error}</p><Button onClick={refresh}>Try again</Button>{cloud&&<SignOut/>}</>:<><LoaderCircle className="spin"/><p>Preparing your raffle desk…</p></>}</div>;
   const {summary:s,settings,guests,payments}=data;
   const pending=payments.filter(p=>p.status==='pending');
   const selected=payments.find(p=>p.id===selectedId&&p.status==='pending');
