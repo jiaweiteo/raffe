@@ -1,0 +1,15 @@
+.venv/
+node_modules/
+frontend/dist/
+__pycache__/
+.pytest_cache/
+data/*
+!data/.gitkeep
+outputs/*
+!outputs/.gitkeep
+.DS_Store
+*.log
+.vercel/
+.env
+.env.*
+!.env.cloud.example

@@ -1,0 +1,20 @@
+.venv
+.git
+.agents
+.codex
+.aws
+**/node_modules
+**/__pycache__
+.pytest_cache
+data
+outputs
+**/*.xlsx
+**/*.sqlite3*
+**/*.db
+**/*.log
+**/.env*
+tests
+frontend/src/*.test.*
+scripts
+supabase
+Start Raffle.command
