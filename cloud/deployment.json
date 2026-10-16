@@ -9,6 +9,8 @@
     "projectId": "prj_P41xw1ACBvnfCW2VEYVaXyGosn6Z",
     "teamId": "team_uhJnP2zvNcyAQzHHHifw3yG4",
     "name": "wedding-raffle",
-    "region": "sin1"
+    "region": "sin1",
+    "productionUrl": "https://wedding-raffle-jiaweiteos-projects.vercel.app",
+    "initialDeploymentId": "dpl_FTXHXkKHDnGPm4ehg1iKxJihoXrg"
   }
 }

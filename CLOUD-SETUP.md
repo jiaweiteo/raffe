@@ -6,6 +6,15 @@ The provisioned project IDs and regions are recorded in `cloud/deployment.json`.
 
 The runtime uses the `raffle_backend` database role, with access confined to the raffle schema. Its generated login is held in Supabase Vault and in Vercel's sensitive production environment configuration. It cannot administer the database, delete audit records, or access Auth or Vault. Temporary permissions used for the import were revoked. Do not store or print its credential in source files.
 
+## Live application
+
+- Admin: https://wedding-raffle-jiaweiteos-projects.vercel.app/admin
+- Projector: https://wedding-raffle-jiaweiteos-projects.vercel.app/display
+
+The administrator account has been created and confirmed. Public signups and anonymous sign-ins are disabled. Sign in using the password set during setup. Private API routes require an authorized Supabase session; the public display only receives aggregate totals.
+
+Verified after launch: 251 guests, nine payments, $3,255 confirmed pot, 976 tickets sold and 524 remaining. A downloaded workbook reconciled with these totals and included all three audit sheets and 1,500 ticket-register rows. A JSON records backup was also downloaded. These are setup-time checks; live values will change as purchases are recorded.
+
 ## Connect and provision
 
 Install and connect the Vercel and Supabase plugins offered in the conversation. Account authorization must be completed by the account owner. Use free projects, preferably in Singapore; do not enable paid upgrades.
