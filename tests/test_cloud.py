@@ -211,3 +211,20 @@ def test_migration_preserves_existing_pending_sales_reversals_and_audit(pg):
     p = payment(store,500,"after-migration")
     with pytest.raises(RuleError,match="overlaps"):
         store.confirm(p["id"],[allocation(store,500,1,FIRST_TICKET+15)],True)
+
+
+def test_limited_backend_role_can_operate_but_cannot_administer_or_delete_audit(pg):
+    store, local = pg
+    assert migrate(store.database_url,local.root,apply_schema=False) == {"already_imported":True}
+    with store.connection() as db:
+        db.raw.execute((BASE / "supabase/migrations/002_backend_role.sql").read_text(),prepare=False)
+        db.execute("SET LOCAL ROLE raffle_backend")
+        assert len(store.guests()) == 251
+        p = payment(store,500,"limited-role")
+        store.confirm(p["id"],[allocation(store,500,1)],True)
+        assert store.summary()["pot_cents"] == 500
+        assert not db.execute("SELECT has_schema_privilege(current_user,'raffle','CREATE')").fetchone()[0]
+        assert not db.execute("SELECT has_table_privilege(current_user,'raffle.audit','DELETE')").fetchone()[0]
+        assert not db.execute("SELECT has_table_privilege(current_user,'raffle.audit','UPDATE')").fetchone()[0]
+        assert not db.execute("SELECT has_table_privilege(current_user,'raffle.guests','INSERT')").fetchone()[0]
+        assert not db.execute("SELECT has_table_privilege(current_user,'raffle.workbook_template','UPDATE')").fetchone()[0]

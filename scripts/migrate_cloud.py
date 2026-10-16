@@ -31,12 +31,13 @@ def read_snapshot(data_dir):
     return tables, contents, fingerprint
 
 
-def migrate(database_url, data_dir):
+def migrate(database_url, data_dir, *, apply_schema=True):
     tables, contents, fingerprint = read_snapshot(Path(data_dir).resolve())
     store = PostgresStore(database_url)
     with store.connection() as db:
         # The deployment user applies this migration once; import and all rows commit together.
-        db.raw.execute((BASE / "supabase/migrations/001_raffle.sql").read_text(), prepare=False)
+        if apply_schema:
+            db.raw.execute((BASE / "supabase/migrations/001_raffle.sql").read_text(), prepare=False)
         previous = db.execute("SELECT value FROM settings WHERE key='cloud_import_fingerprint'").fetchone()
         if previous:
             if json.loads(previous[0]) == fingerprint:
@@ -71,6 +72,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-dir", type=Path, default=BASE / "data")
     parser.add_argument("--check", action="store_true", help="Inspect only local counts; do not connect or import")
+    parser.add_argument("--schema-applied", action="store_true", help="Use an existing schema provisioned through the Supabase MCP")
     args = parser.parse_args()
     if args.check:
         tables, _, _ = read_snapshot(args.data_dir.resolve())
@@ -78,7 +80,7 @@ def main():
         return
     url = os.getenv("SUPABASE_DATABASE_URL") or getpass.getpass("Supabase transaction-pooler connection URL (hidden): ")
     try:
-        print(json.dumps(migrate(url, args.data_dir)))
+        print(json.dumps(migrate(url, args.data_dir, apply_schema=not args.schema_applied)))
     except Exception:
         # Driver exceptions can contain connection details. Do not print them into logs.
         print("Import did not complete. Existing records were preserved. Check connectivity, database permissions and whether this cloud project has already been imported.", file=sys.stderr)

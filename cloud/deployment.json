@@ -1,0 +1,14 @@
+{
+  "repository": "https://github.com/jiaweiteo/raffe",
+  "supabase": {
+    "projectId": "pjlwhkckobuqstnurxwz",
+    "organizationId": "gqnhkmkrbxctlzsjiooz",
+    "region": "ap-southeast-1"
+  },
+  "vercel": {
+    "projectId": "prj_P41xw1ACBvnfCW2VEYVaXyGosn6Z",
+    "teamId": "team_uhJnP2zvNcyAQzHHHifw3yG4",
+    "name": "wedding-raffle",
+    "region": "sin1"
+  }
+}

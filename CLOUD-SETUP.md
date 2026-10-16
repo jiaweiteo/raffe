@@ -2,6 +2,10 @@
 
 The cloud version uses Supabase PostgreSQL and Supabase Auth. Vercel serves FastAPI and the React interface. Outlook intake is deferred; manual entry and pasted bank alerts work.
 
+The provisioned project IDs and regions are recorded in `cloud/deployment.json`. The existing ledger and template have been imported into [wedding-raffle on Supabase](https://supabase.com/dashboard/project/pjlwhkckobuqstnurxwz). The [Vercel project](https://vercel.com/jiaweiteos-projects/wedding-raffle) is linked to `jiaweiteo/raffe`. Reuse these resources; do not create replacement projects on subsequent deployments.
+
+The runtime uses the `raffle_backend` database role, with access confined to the raffle schema. Its generated login is held in Supabase Vault and in Vercel's sensitive production environment configuration. It cannot administer the database, delete audit records, or access Auth or Vault. Temporary permissions used for the import were revoked. Do not store or print its credential in source files.
+
 ## Connect and provision
 
 Install and connect the Vercel and Supabase plugins offered in the conversation. Account authorization must be completed by the account owner. Use free projects, preferably in Singapore; do not enable paid upgrades.
@@ -23,6 +27,8 @@ Run the import, pasting the **Transaction pooler** database URL at the hidden pr
 ```
 
 The import applies `supabase/migrations/001_raffle.sql` and copies guests, every payment status, allocations, tickets, audit history and the workbook template in one transaction. It preserves IDs and refuses to overwrite a nonempty project. Repeating the same import is a no-op. The local database remains unchanged.
+
+For a schema already provisioned through MCP, the importer supports `--schema-applied`. A fresh import needs a temporary import role with insert permissions on every ledger table and the template, plus update permission on the audit sequence. Remove those extra permissions after importing. The normal runtime role intentionally cannot import or overwrite the roster or original workbook.
 
 Raffle tables and the workbook are in a private `raffle` schema. Anonymous and authenticated browser clients cannot read them directly. Only the backend connects to this schema. Cross-instance transaction locks prevent two administrators from issuing the same ticket numbers.
 
