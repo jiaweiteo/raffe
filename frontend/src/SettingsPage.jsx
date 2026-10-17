@@ -21,7 +21,7 @@ export default function SettingsPage({ settings, act, busy }) {
   };
   const [form, setForm] = useState({
     ...settings,
-    start_time: toLocal(settings.start_time),
+    start_time: settings.cloud ? "" : toLocal(settings.start_time),
   });
   const field = (key, value) => setForm({ ...form, [key]: value });
   if (settings.cloud)
@@ -42,13 +42,9 @@ export default function SettingsPage({ settings, act, busy }) {
               act(
                 () =>
                   api("/settings", {
-                    method: "PUT",
+                    method: "PATCH",
                     body: {
                       event_title: form.event_title,
-                      client_id: "",
-                      trusted_sender: "",
-                      account_suffix: settings.account_suffix || "",
-                      start_time: settings.start_time,
                     },
                   }),
                 "Event title saved.",

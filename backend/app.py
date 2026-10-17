@@ -75,8 +75,11 @@ class Reassignment(Reason):
     guest_id: str = Field(max_length=100)
 
 
-class Settings(Input):
+class EventSettings(Input):
     event_title: str = Field(min_length=1, max_length=100)
+
+
+class Settings(EventSettings):
     client_id: str = Field(default="", max_length=100)
     trusted_sender: str = Field(default="", max_length=254)
     account_suffix: str = Field(default="", max_length=4)
@@ -295,6 +298,18 @@ def create_app(data_dir=None, source=None, output=None, run_workers=True, *, clo
         store.reassign(payment_id, allocation_id, body.guest_id, body.reason.strip())
         persist_outputs()
         return {"ok": True}
+
+    @app.patch("/api/settings")
+    def save_event_settings(body: EventSettings):
+        title = body.event_title.strip()
+        if not title:
+            raise RuleError("Enter a display title.")
+        with store.connection() as db:
+            store._set(db, "event_title", title)
+            store._audit(db, "settings_updated", None, {"mail_configuration_changed": False})
+            store._changed(db)
+        exporter.sync()
+        return safe_settings()
 
     @app.put("/api/settings")
     def save_settings(body: Settings):

@@ -88,6 +88,35 @@ def test_cloud_api_never_exposes_local_session_token_or_private_records(auth, tm
         assert client.post("/api/payments",headers={**headers,"Origin":"https://attacker.example"},json={}).status_code == 403
 
 
+def test_cloud_title_update_does_not_resubmit_legacy_mail_settings(auth, tmp_path, monkeypatch):
+    store = Store(tmp_path / "local", BASE / "Registration and Raffle List.xlsx")
+    store.set_values(start_time="2026-10-16 19:24:59.474049+00", client_id="legacy-app-id",
+                     trusted_sender="bank@example.test", account_suffix="3671", delta_link="saved-sync-state")
+    before = store.settings()
+    async def authorized(header):
+        return header == "Bearer verified-admin"
+    monkeypatch.setattr(auth, "authorized", authorized)
+    app = create_app(cloud=True, store=store, auth=auth)
+    headers = {"Authorization": "Bearer verified-admin"}
+    with TestClient(app) as client:
+        assert client.patch("/api/settings", json={"event_title":"New title"}).status_code == 401
+        response = client.patch("/api/settings", headers=headers, json={"event_title":"  New title  "})
+        assert response.status_code == 200
+        assert response.json()["event_title"] == "New title"
+        assert client.get("/api/display").json()["event_title"] == "New title"
+        after = store.settings()
+        for key in ("start_time", "client_id", "trusted_sender", "account_suffix", "delta_link", "sync_status"):
+            assert after[key] == before[key]
+        assert after["revision"] == before["revision"] + 1
+        updates = [event for event in store.audit() if event["action"] == "settings_updated"]
+        assert len(updates) == 1
+        assert json.loads(updates[0]["details"]) == {"mail_configuration_changed": False}
+        assert client.patch("/api/settings", headers=headers, json={"event_title":"   "}).status_code == 400
+        assert client.patch("/api/settings", headers=headers, json={"event_title":"X"*101}).status_code == 422
+        assert client.patch("/api/settings", headers=headers, json={"event_title":"New title", "start_time":"invalid"}).status_code == 422
+        assert store.settings()["revision"] == after["revision"]
+
+
 @pytest.fixture
 def pg(tmp_path):
     url = os.getenv("RAFFLE_TEST_DATABASE_URL")

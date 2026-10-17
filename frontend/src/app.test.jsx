@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Admin, AllocationForm, LiveDisplay, ManualModal } from "./main.jsx";
 import AuditPage from "./AuditPage";
 import GuestList from "./GuestList";
+import SettingsPage from "./SettingsPage";
 
 const guests = [
   {
@@ -64,6 +65,76 @@ afterEach(() => {
 });
 
 const run = async (fn) => fn();
+
+it.each(["2026-10-16 19:24:59.474049+00", "invalid historical timestamp"])(
+  "saves the cloud title without parsing or resubmitting the hidden timestamp %s",
+  async (startTime) => {
+    const user = userEvent.setup();
+    render(
+      <SettingsPage
+        settings={{
+          cloud: true,
+          event_title: "Our wedding",
+          start_time: startTime,
+        }}
+        act={run}
+        busy={false}
+      />,
+    );
+    await user.clear(
+      screen.getByRole("textbox", { name: "Live display title" }),
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: "Live display title" }),
+      "Julia & Markus Lucky Raffle",
+    );
+    await user.click(screen.getByRole("button", { name: "Save settings" }));
+    await waitFor(() =>
+      expect(fetch.mock.calls.some(([url]) => url === "/api/settings")).toBe(
+        true,
+      ),
+    );
+    const request = fetch.mock.calls.find(
+      ([url]) => url === "/api/settings",
+    )[1];
+    expect(request.method).toBe("PATCH");
+    expect(JSON.parse(request.body)).toEqual({
+      event_title: "Julia & Markus Lucky Raffle",
+    });
+  },
+);
+
+it("keeps the local Outlook settings form's full ISO timestamp update", async () => {
+  const user = userEvent.setup();
+  render(
+    <SettingsPage
+      settings={{
+        cloud: false,
+        event_title: "Our wedding",
+        start_time: "2026-10-16T19:24:59Z",
+        client_id: "",
+        trusted_sender: "",
+        account_suffix: "3671",
+      }}
+      act={run}
+      busy={false}
+    />,
+  );
+  await user.click(screen.getByRole("button", { name: "Save settings" }));
+  await waitFor(() =>
+    expect(fetch.mock.calls.some(([url]) => url === "/api/settings")).toBe(
+      true,
+    ),
+  );
+  const request = fetch.mock.calls.find(([url]) => url === "/api/settings")[1];
+  expect(request.method).toBe("PUT");
+  expect(JSON.parse(request.body)).toMatchObject({
+    event_title: "Our wedding",
+    account_suffix: "3671",
+    start_time: expect.stringMatching(/T.*Z$/),
+  });
+});
+
 async function pickGuest(user, index, name) {
   const input = screen.getAllByRole("combobox")[index];
   await user.type(input, name);
