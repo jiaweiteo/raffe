@@ -2068,12 +2068,7 @@ td small {
 .live-display {
   min-height: 100vh;
   min-height: 100svh;
-  background: radial-gradient(
-    ellipse at 50% 25%,
-    #fffef8 0%,
-    #f7f4e9 65%,
-    #f1eedf 100%
-  );
+  background: url("./assets/monet bg.jpg") center / cover no-repeat;
   display: flex;
   flex-direction: column;
   align-items: center;

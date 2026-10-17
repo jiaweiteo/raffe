@@ -239,12 +239,7 @@
   align-items: center;
   justify-content: center;
   padding: 65px 7vw 22px;
-  background: radial-gradient(
-    ellipse at 50% 40%,
-    #344735,
-    #1b3028 65%,
-    #14251f
-  );
+  background: url("../assets/monet bg.jpg") center / cover no-repeat;
   color: #f6efda;
   text-align: center;
 }
