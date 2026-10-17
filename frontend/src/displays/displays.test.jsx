@@ -119,7 +119,7 @@ it("celebrates only new positive pot changes, with opt-in sound and no repeats",
   expect(
     screen.getByRole("heading", { name: "The pot just got bigger!" }),
   ).toBeTruthy();
-  expect(screen.getByText("+$50.00")).toBeTruthy();
+  expect(screen.getByText("+$50")).toBeTruthy();
   expect(screen.getByText("Added by Alex Test. Huat ah!!!")).toBeTruthy();
   expect(sound.play).toHaveBeenCalledTimes(1);
   await poll();
@@ -135,7 +135,7 @@ it("celebrates only new positive pot changes, with opt-in sound and no repeats",
   );
   receive(2000, ["Jamie Test"]);
   await poll();
-  expect(screen.getByText("+$20.00")).toBeTruthy();
+  expect(screen.getByText("+$20")).toBeTruthy();
   expect(screen.getByText("Added by Jamie Test. Huat ah!!!")).toBeTruthy();
   expect(screen.queryByText("Added by Alex Test. Huat ah!!!")).toBeNull();
   expect(sound.play).toHaveBeenCalledTimes(1);
@@ -155,9 +155,7 @@ it("clearly marks a preview, keeps the actual pot unchanged, and dismisses the e
   expect(
     screen.getByText("Effect preview only · no payment recorded"),
   ).toBeTruthy();
-  expect(
-    screen.getByLabelText("Confirmed prize pool: SGD 800.00"),
-  ).toBeTruthy();
+  expect(screen.getByLabelText("Confirmed prize pool: SGD 800")).toBeTruthy();
   expect(sound.play).not.toHaveBeenCalled();
   expect(
     fetch.mock.calls.every(
@@ -184,11 +182,11 @@ it("shows reduced-motion celebrations without fireworks", async () => {
   await settle();
   receive(5000);
   await poll();
-  expect(screen.getByText("+$50.00")).toBeTruthy();
+  expect(screen.getByText("+$50")).toBeTruthy();
   expect(container.querySelector("canvas")).toBeNull();
   expect(
-    screen.getByLabelText("Confirmed prize pool: SGD 850.00").textContent,
-  ).toContain("850.00");
+    screen.getByLabelText("Confirmed prize pool: SGD 850").textContent,
+  ).toContain("850");
 });
 
 it("does not invent an arrival on initial connection or while the tab is hidden", async () => {
@@ -212,7 +210,7 @@ it("acknowledges group buyers and all confirmations between polls without credit
   receive(2000, ["Alex Test", "Sam Test"]);
   summary = { ...summary, pot_cents: summary.pot_cents - 5000 };
   await poll();
-  expect(screen.getByText("+$70.00")).toBeTruthy();
+  expect(screen.getByText("+$70")).toBeTruthy();
   expect(
     screen.getByText("Added by Alex Test, Jamie Test and Sam Test. Huat ah!!!"),
   ).toBeTruthy();
@@ -234,8 +232,8 @@ it("separates potential payouts from the live pot and rotates examples", async (
   render(<PotentialDisplay />);
   await settle();
   expect(screen.getByText("FIRST PRIZE COULD BE")).toBeTruthy();
-  expect(screen.getAllByText("$3,900.00")).toHaveLength(2);
-  expect(screen.getByText("$800.00")).toBeTruthy();
+  expect(screen.getAllByText("$3,900")).toHaveLength(2);
+  expect(screen.getByText("$800")).toBeTruthy();
   expect(
     screen.getByText(
       "Illustrative potential payouts. Actual prizes depend on the final confirmed pot.",
@@ -244,14 +242,14 @@ it("separates potential payouts from the live pot and rotates examples", async (
   await act(async () => {
     await vi.advanceTimersByTimeAsync(9000);
   });
-  expect(screen.getAllByText("$1,900.00")).toHaveLength(2);
+  expect(screen.getAllByText("$1,900")).toHaveLength(2);
   fireEvent.click(
     screen.getByRole("button", { name: "Pause potential prize rotation" }),
   );
   await act(async () => {
     await vi.advanceTimersByTimeAsync(9000);
   });
-  expect(screen.getAllByText("$1,900.00")).toHaveLength(2);
+  expect(screen.getAllByText("$1,900")).toHaveLength(2);
   expect(fetch.mock.calls.every(([url]) => url === "/api/display")).toBe(true);
 });
 

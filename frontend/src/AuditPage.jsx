@@ -10,12 +10,8 @@ import {
   Search,
   ShieldCheck,
 } from "lucide-react";
+import { money } from "./format";
 
-const currency = new Intl.NumberFormat("en-SG", {
-  style: "currency",
-  currency: "SGD",
-  currencyDisplay: "narrowSymbol",
-});
 const timestamps = Object.fromEntries(
   ["datetime_sg", "datetime_utc"].map((kind) => [
     kind,
@@ -34,7 +30,7 @@ const timestamps = Object.fromEntries(
 
 function cellText(value, type) {
   if (value === null || value === undefined || value === "") return "—";
-  if (type === "money") return currency.format(value / 100);
+  if (type === "money") return money(value);
   if (timestamps[type] && !Number.isNaN(Date.parse(value)))
     return timestamps[type].format(new Date(value));
   return String(value);

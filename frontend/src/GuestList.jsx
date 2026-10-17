@@ -9,16 +9,12 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
+import { money } from "./format";
 
 const compareText = new Intl.Collator("en-SG", {
   numeric: true,
   sensitivity: "base",
 }).compare;
-const money = new Intl.NumberFormat("en-SG", {
-  style: "currency",
-  currency: "SGD",
-  currencyDisplay: "narrowSymbol",
-});
 function tableNumber(value) {
   const text = String(value ?? "").trim();
   const number = Number(text);
@@ -248,7 +244,7 @@ export default function GuestList({
                 </td>
                 <td>{g.relationship || "—"}</td>
                 <td>{g.table || "—"}</td>
-                <td>{money.format(g.paid_cents / 100)}</td>
+                <td>{money(g.paid_cents)}</td>
                 <td>
                   <span className={`badge ${g.ticket_count ? "green" : ""}`}>
                     {g.ticket_count}

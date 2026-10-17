@@ -38,7 +38,7 @@ export default function AllocationForm({
         {
           key: crypto.randomUUID(),
           guest_id: "",
-          amount: (payment.amount_cents / 100).toFixed(2),
+          amount: String(payment.amount_cents / 100),
           count: String(payment.ticket_entitlement || ""),
           first: "",
           autoFirst: true,
@@ -62,7 +62,7 @@ export default function AllocationForm({
                 ...current[0],
                 amount:
                   payment.amount_cents > 0
-                    ? (payment.amount_cents / 100).toFixed(2)
+                    ? String(payment.amount_cents / 100)
                     : "",
                 count: String(payment.ticket_entitlement || ""),
               },
@@ -227,7 +227,7 @@ export default function AllocationForm({
               Share (SGD)
               <input
                 aria-label={`Guest ${index + 1} amount`}
-                inputMode="decimal"
+                inputMode="numeric"
                 value={row.amount}
                 onChange={(e) => change(row.key, "amount", e.target.value)}
               />
@@ -287,9 +287,9 @@ export default function AllocationForm({
                 {
                   key: crypto.randomUUID(),
                   guest_id: "",
-                  amount: (
-                    Math.max(0, payment.amount_cents - allocatedCents) / 100
-                  ).toFixed(2),
+                  amount: String(
+                    Math.max(0, payment.amount_cents - allocatedCents) / 100,
+                  ),
                   count:
                     payment.ticket_entitlement > allocatedCount
                       ? String(payment.ticket_entitlement - allocatedCount)

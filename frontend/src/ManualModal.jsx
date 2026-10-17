@@ -70,8 +70,8 @@ export default function ManualModal({
                   <span>$</span>
                   <input
                     autoFocus
-                    inputMode="decimal"
-                    placeholder="50.00"
+                    inputMode="numeric"
+                    placeholder="50"
                     value={amount}
                     onChange={(e) => {
                       draftRef.current = true;
