@@ -347,7 +347,7 @@ it("the projector only requests public data and retains the last total during an
     json: async () => ({ summary, cursor: 0, contributions: [] }),
   });
   render(<LiveDisplay />);
-  await waitFor(() => expect(screen.getByText("800.00")).toBeTruthy());
+  await waitFor(() => expect(screen.getByText("800")).toBeTruthy());
   expect(screen.getByText("Live from the raffle desk")).toBeTruthy();
   fetch.mockRejectedValue(new Error("offline"));
   await waitFor(
@@ -357,7 +357,7 @@ it("the projector only requests public data and retains the last total during an
       ).toBeTruthy(),
     { timeout: 3000 },
   );
-  expect(screen.getByText("800.00")).toBeTruthy();
+  expect(screen.getByText("800")).toBeTruthy();
   expect(
     fetch.mock.calls.every(([url]) =>
       url.startsWith("/api/display/celebrations"),
@@ -456,7 +456,7 @@ it("opens Audit from navigation and shows all three searchable report tabs with 
   );
   await screen.findByRole("table", { name: "Payment Ledger" });
   expect(screen.getAllByRole("tab")).toHaveLength(3);
-  expect(screen.getByRole("cell", { name: "$50.00" })).toBeTruthy();
+  expect(screen.getByRole("cell", { name: "$50" })).toBeTruthy();
   await user.selectOptions(screen.getByLabelText("Filter status"), "pending");
   expect(screen.queryByRole("cell", { name: "Alex Test" })).toBeNull();
   expect(screen.getByRole("cell", { name: "PAY-PENDING" })).toBeTruthy();
@@ -608,7 +608,7 @@ it("combines relationship and integer table filters with search and retains them
     />,
   );
   expect(guestRowNames()).toEqual(["Zoe"]);
-  expect(screen.getByRole("cell", { name: "$10.00" })).toBeTruthy();
+  expect(screen.getByRole("cell", { name: "$10" })).toBeTruthy();
   await user.clear(screen.getByLabelText("Search guests"));
   await user.selectOptions(
     screen.getByLabelText("Filter guests by table"),
@@ -699,7 +699,7 @@ it("keeps manual group splits editable and requires the exact transfer totals", 
     screen.getByRole("button", { name: "Split with another guest" }),
   );
   await pickGuest(user, 1, "Jamie Test");
-  expect(screen.getByLabelText("Guest 2 amount").value).toBe("25.00");
+  expect(screen.getByLabelText("Guest 2 amount").value).toBe("25");
   expect(screen.getByLabelText("Guest 2 ticket count").value).toBe("7");
   expect(screen.getByLabelText("Guest 2 first ticket").value).toBe("0009");
   await user.click(screen.getByRole("checkbox"));

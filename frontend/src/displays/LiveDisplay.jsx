@@ -151,17 +151,14 @@ export default function LiveDisplay() {
         className="display-pot"
         aria-label={
           summary
-            ? `Confirmed prize pool: SGD ${(summary.pot_cents / 100).toFixed(2)}`
+            ? `Confirmed prize pool: SGD ${Math.round(summary.pot_cents / 100)}`
             : undefined
         }
       >
         {summary ? (
           <>
             <span>S$</span>
-            {new Intl.NumberFormat("en-SG", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            }).format((animatedPot ?? summary.pot_cents) / 100)}
+            {integer(Math.round((animatedPot ?? summary.pot_cents) / 100))}
           </>
         ) : (
           <span className="display-loading">Preparing the celebration…</span>

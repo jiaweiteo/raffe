@@ -3,7 +3,8 @@ export const money = (cents) =>
     style: "currency",
     currency: "SGD",
     currencyDisplay: "narrowSymbol",
-    minimumFractionDigits: 2,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(cents / 100);
 export const integer = (value) => new Intl.NumberFormat("en-SG").format(value);
 export const time = (value) =>
