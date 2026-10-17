@@ -24,7 +24,7 @@ export default function PotentialDisplay() {
   const prizes = prizesForPot(target);
   const soldOut = Boolean(summary && summary.remaining === 0);
   useEffect(() => {
-    document.title = "The Wedding Raffle · Potential prizes";
+    document.title = "Markus & Julia · Potential prizes";
   }, []);
   useEffect(() => {
     if (!rotating || reduced || goals.length < 2) return;

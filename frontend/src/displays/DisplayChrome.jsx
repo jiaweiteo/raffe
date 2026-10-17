@@ -6,7 +6,7 @@ export function DisplayBrand() {
   return (
     <div className="display-brand">
       <Leaf size={21} strokeWidth={1} />
-      <span>THE WEDDING RAFFLE</span>
+      <span>MARKUS & JULIA · THE RAFFLE</span>
       <Leaf size={21} strokeWidth={1} />
     </div>
   );
