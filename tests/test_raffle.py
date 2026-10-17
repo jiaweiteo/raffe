@@ -1,5 +1,6 @@
 import copy
 import hashlib
+import json
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -86,6 +87,37 @@ def test_group_confirmation_and_retry_are_atomic(store):
     assert sum(g['paid_cents'] for g in store.guests()) == 5000
     assert sum(g['ticket_count'] for g in store.guests()) == 15
     assert sum(a['action']=='payment_confirmed' for a in store.audit()) == 1
+
+
+def test_display_acknowledgements_only_include_new_confirmed_buyers(store):
+    baseline = store.display_celebrations()
+    assert baseline['contributions'] == []
+    guests = store.guests()
+    p = payment(store, note='Private bank note', account_suffix='3671')
+    rows = [allocation(store,2500,8), allocation(store,2500,7,FIRST_TICKET+8,guests[1]['id'])]
+    store.confirm(p['id'], rows, True)
+    store.confirm(p['id'], rows, True)
+    second = payment(store)
+    # The same guest can own multiple physical ranges, but gets one acknowledgement per payment.
+    store.confirm(second['id'], [allocation(store,2500,8,FIRST_TICKET+15), allocation(store,2500,7,FIRST_TICKET+23)], True)
+    pending = payment(store,500)
+    feed = store.display_celebrations(baseline['cursor'])
+    assert feed['summary']['pot_cents'] == 10000
+    assert set(feed) == {'summary', 'cursor', 'contributions'}
+    assert [event['amount_cents'] for event in feed['contributions']] == [5000,5000]
+    assert [event['guest_names'] for event in feed['contributions']] == [[guests[0]['name'],guests[1]['name']],[guests[0]['name']]]
+    assert all(set(event) == {'id','amount_cents','guest_names'} for event in feed['contributions'])
+    for secret in [p['id'],pending['id'],guests[0]['id'],'Private bank note','3671']:
+        assert secret not in json.dumps(feed)
+    assert store.display_celebrations()['contributions'] == []
+    assert store.display_celebrations(feed['cursor'])['contributions'] == []
+    assert store.display_celebrations(feed['cursor']+1000)['contributions'] == []
+    store.update_guest(guests[0]['id'], name='Corrected name', guest_of='Private relationship', table_no=12)
+    assert store.display_celebrations(feed['cursor'])['contributions'] == []
+    store.reverse(p['id'],'Refund')
+    recovered = store.display_celebrations(baseline['cursor'])
+    assert recovered['summary']['pot_cents'] == 5000
+    assert [event['amount_cents'] for event in recovered['contributions']] == [5000]
 
 
 @pytest.mark.parametrize('change', ['amount','count','guest','overlap','low','high','unverified'])
@@ -326,6 +358,10 @@ def test_api_security_idempotency_and_public_privacy(tmp_path):
         headers={'X-Raffle-Token':client.get('/api/session').json()['token']}
         state=client.get('/api/state',headers=headers).json()
         assert len(state['guests'])==251
+        baseline=client.get('/api/display/celebrations').json()
+        assert baseline['contributions']==[]
+        assert client.get('/api/display/celebrations?after=-1').status_code==422
+        assert client.get('/api/display/celebrations?after=9223372036854775808').status_code==422
         request={'request_id':str(uuid4()),'amount_cents':5000}
         p=client.post('/api/payments',json=request,headers=headers).json()['payment']
         assert not client.post('/api/payments',json=request,headers=headers).json()['created']
@@ -337,6 +373,10 @@ def test_api_security_idempotency_and_public_privacy(tmp_path):
         assert set(public)=={'pot_cents','prizes_cents','sold','voided','remaining','capacity','revision','updated_at','event_title'}
         for guest in state['guests']:
             assert guest['id'] not in str(public)
+        feed=client.get('/api/display/celebrations',params={'after':baseline['cursor']}).json()
+        assert feed['summary']==public
+        assert feed['contributions'][0]['guest_names']==[app.state.store.guests()[0]['name']]
+        assert client.get('/api/display/celebrations',headers={'Origin':'https://untrusted.example'}).status_code==403
         assert client.get('/api/audit').status_code==403
         assert client.get('/api/audit/sheets').status_code==403
         reports=client.get('/api/audit/sheets',headers=headers).json()

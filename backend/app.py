@@ -10,7 +10,7 @@ from typing import Annotated
 from urllib.parse import urlparse
 from uuid import UUID
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
@@ -135,7 +135,7 @@ def create_app(data_dir=None, source=None, output=None, run_workers=True, *, clo
             origin = request.headers.get("origin")
             if origin and urlparse(origin).netloc != request.headers.get("host"):
                 return JSONResponse({"detail": "Cross-origin access is disabled."}, status_code=403)
-            public = path in {"/api/display", "/api/events", "/api/health", "/api/session"}
+            public = path in {"/api/display", "/api/display/celebrations", "/api/events", "/api/health", "/api/session"}
             if not public:
                 if cloud:
                     if not await auth.authorized(request.headers.get("authorization", "")):
@@ -192,6 +192,10 @@ def create_app(data_dir=None, source=None, output=None, run_workers=True, *, clo
     @app.get("/api/display")
     def display():
         return store.summary()
+
+    @app.get("/api/display/celebrations")
+    def display_celebrations(after: int | None = Query(default=None, ge=0, le=9223372036854775807)):
+        return store.display_celebrations(after)
 
     @app.get("/api/state")
     def state():

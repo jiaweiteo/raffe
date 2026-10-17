@@ -42,7 +42,9 @@ function useAnimatedPot(target, reduced) {
 }
 
 export default function LiveDisplay() {
-  const { summary, connected } = useLiveSummary();
+  const { summary, contributions, connected } = useLiveSummary({
+    celebrations: true,
+  });
   const reduced = useReducedMotion();
   const [celebration, setCelebration] = useState(null);
   const [sound, setSound] = useState(false);
@@ -51,8 +53,8 @@ export default function LiveDisplay() {
   const sequence = useRef(0);
   const audio = useRef(null);
   const animatedPot = useAnimatedPot(summary?.pot_cents, reduced);
-  const celebrate = (amount, preview = false) => {
-    setCelebration({ id: ++sequence.current, amount, preview });
+  const celebrate = (amount, preview = false, guestNames = []) => {
+    setCelebration({ id: ++sequence.current, amount, preview, guestNames });
     if (audio.current?.enabled) audio.current.play();
   };
   useEffect(() => {
@@ -63,19 +65,27 @@ export default function LiveDisplay() {
     if (!summary) return;
     const previous = previousPot.current;
     previousPot.current = summary.pot_cents;
-    if (previous !== null && summary.pot_cents < previous) {
+    if (
+      previous !== null &&
+      summary.pot_cents < previous &&
+      !contributions?.length
+    ) {
       setCelebration(null);
       audio.current?.stop();
     }
-    // Establish a baseline on load. Refreshes and corrections never masquerade as new money.
+    // A confirmation cursor prevents refreshes and guest edits from replaying an arrival.
     if (
       previous !== null &&
-      summary.pot_cents > previous &&
+      contributions?.length &&
       document.visibilityState !== "hidden"
     ) {
-      celebrate(summary.pot_cents - previous);
+      celebrate(
+        contributions.reduce((total, event) => total + event.amount_cents, 0),
+        false,
+        [...new Set(contributions.flatMap((event) => event.guest_names))],
+      );
     }
-  }, [summary?.pot_cents]);
+  }, [summary, contributions]);
   useEffect(() => {
     if (!celebration) return;
     const timer = setTimeout(() => setCelebration(null), 9000);
@@ -117,7 +127,7 @@ export default function LiveDisplay() {
           type="button"
           className="display-tool"
           aria-label="Preview effect"
-          onClick={() => celebrate(5000, true)}
+          onClick={() => celebrate(5000, true, ["Alex & Jamie"])}
         >
           <Sparkles size={17} />
           <span>Preview effect</span>

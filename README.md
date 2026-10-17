@@ -18,11 +18,11 @@ For a fresh installation on this Mac, install Python 3.14 and Node.js 24, run `.
 
 ## Projector displays
 
-**Live display** shows confirmed totals. New increases trigger a nine-second celebration with gold fireworks, confetti, sweeping light, a large contribution announcement and an animated pot total. Open the display, click **Enable sound** once, and check **Preview effect** before guests arrive. Browser autoplay rules require that first click; repeat it after reloading the page. The preview does not create a payment or change the pot. The sound can be muted at any time. Initial page loads, repeated polls and reversals do not trigger a celebration. Reduced-motion preferences replace fireworks with a static announcement.
+**Live display** shows confirmed totals. New confirmed purchases trigger a nine-second celebration with gold fireworks, confetti, sweeping light, a large contribution announcement and an animated pot total. The caption thanks the selected guest names: **Added by Alex and Jamie. Huat ah!!!** Group purchases acknowledge all selected guests. Open the display, click **Enable sound** once, and check **Preview effect** before guests arrive. Browser autoplay rules require that first click; repeat it after reloading the page. The preview uses example names and does not create a payment or change the pot. The sound can be muted at any time. Initial page loads, repeated polls and reversals do not trigger a celebration. Reduced-motion preferences replace fireworks with a static announcement.
 
 **Potential prizes** uses a dark green and gold layout to show how all five prizes would look at larger example pots, initially $3,000 / $4,000 / $5,000. It rotates every nine seconds and can be paused or switched manually. Examples are labelled as illustrative, with the actual live pot and available tickets shown separately. Targets update as the pot grows and stay within the maximum possible pot based on remaining tickets at $5 each. When inventory runs out, the screen shows the confirmed prize amounts and removes the purchase invitation.
 
-Both screens have fullscreen controls and links to each other. They request only public aggregate totals; no guest, payment-reference or bank details are shown.
+Both screens have fullscreen controls and links to each other. The potential-prize screen requests only aggregate totals. The main display also requests guest names for newly confirmed contributions from the public celebration feed; it never receives the guest roster, relationships, table numbers, payment references or bank details.
 
 ## Record the first payment
 

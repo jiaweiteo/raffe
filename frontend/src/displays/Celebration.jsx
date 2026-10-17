@@ -106,6 +106,10 @@ function Fireworks() {
 }
 
 export default function Celebration({ celebration, reduced }) {
+  const guests = new Intl.ListFormat("en-SG", {
+    style: "long",
+    type: "conjunction",
+  }).format(celebration.guestNames || []);
   return (
     <div
       className={`celebration ${reduced ? "reduced" : ""}`}
@@ -135,9 +139,14 @@ export default function Celebration({ celebration, reduced }) {
         <div className="celebration-amount">+{money(celebration.amount)}</div>
         <p className="celebration-caption">
           <Sparkles size={18} />
-          {celebration.preview
-            ? "Effect preview only · no payment recorded"
-            : "Added to the prize pool. Let’s hear it!"}
+          <span>
+            {guests ? `Added by ${guests}. Huat ah!!!` : "Huat ah!!!"}
+            {celebration.preview && (
+              <small className="celebration-preview-note">
+                Effect preview only · no payment recorded
+              </small>
+            )}
+          </span>
           <Sparkles size={18} />
         </p>
       </div>

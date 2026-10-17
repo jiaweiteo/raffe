@@ -41,9 +41,11 @@ vi.mock("./celebrationAudio", () => ({
   },
 }));
 let summary;
+let contributions;
 beforeEach(() => {
   vi.useFakeTimers();
   vi.clearAllMocks();
+  contributions = [];
   summary = {
     pot_cents: 80000,
     prizes_cents: [25000, 25000, 15000, 10000, 5000],
@@ -56,7 +58,23 @@ beforeEach(() => {
   };
   vi.stubGlobal(
     "fetch",
-    vi.fn(async () => ({ ok: true, json: async () => summary })),
+    vi.fn(async (url) => ({
+      ok: true,
+      json: async () => {
+        if (url === "/api/display") return summary;
+        const after = new URL(url, "http://localhost").searchParams.get(
+          "after",
+        );
+        return {
+          summary,
+          cursor: contributions.at(-1)?.id ?? 10,
+          contributions:
+            after === null
+              ? []
+              : contributions.filter((event) => event.id > Number(after)),
+        };
+      },
+    })),
   );
   vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
@@ -75,6 +93,14 @@ const poll = async () => {
     await vi.advanceTimersByTimeAsync(2000);
   });
 };
+const receive = (amount, guestNames = ["Alex Test"]) => {
+  contributions.push({
+    id: contributions.length + 11,
+    amount_cents: amount,
+    guest_names: guestNames,
+  });
+  summary = { ...summary, pot_cents: summary.pot_cents + amount };
+};
 
 it("celebrates only new positive pot changes, with opt-in sound and no repeats", async () => {
   render(<LiveDisplay />);
@@ -88,12 +114,13 @@ it("celebrates only new positive pot changes, with opt-in sound and no repeats",
       screen.getByRole("button", { name: "Enable celebration sound" }),
     );
   });
-  summary = { ...summary, pot_cents: 85000 };
+  receive(5000);
   await poll();
   expect(
     screen.getByRole("heading", { name: "The pot just got bigger!" }),
   ).toBeTruthy();
   expect(screen.getByText("+$50.00")).toBeTruthy();
+  expect(screen.getByText("Added by Alex Test. Huat ah!!!")).toBeTruthy();
   expect(sound.play).toHaveBeenCalledTimes(1);
   await poll();
   expect(sound.play).toHaveBeenCalledTimes(1);
@@ -106,11 +133,17 @@ it("celebrates only new positive pot changes, with opt-in sound and no repeats",
   fireEvent.click(
     screen.getByRole("button", { name: "Mute celebration sound" }),
   );
-  summary = { ...summary, pot_cents: 82000 };
+  receive(2000, ["Jamie Test"]);
   await poll();
   expect(screen.getByText("+$20.00")).toBeTruthy();
+  expect(screen.getByText("Added by Jamie Test. Huat ah!!!")).toBeTruthy();
+  expect(screen.queryByText("Added by Alex Test. Huat ah!!!")).toBeNull();
   expect(sound.play).toHaveBeenCalledTimes(1);
-  expect(fetch.mock.calls.every(([url]) => url === "/api/display")).toBe(true);
+  expect(
+    fetch.mock.calls.every(([url]) =>
+      url.startsWith("/api/display/celebrations"),
+    ),
+  ).toBe(true);
 });
 
 it("clearly marks a preview, keeps the actual pot unchanged, and dismisses the effect", async () => {
@@ -118,6 +151,7 @@ it("clearly marks a preview, keeps the actual pot unchanged, and dismisses the e
   await settle();
   fireEvent.click(screen.getByRole("button", { name: "Preview effect" }));
   expect(screen.getByText("CELEBRATION PREVIEW")).toBeTruthy();
+  expect(screen.getByText("Added by Alex & Jamie. Huat ah!!!")).toBeTruthy();
   expect(
     screen.getByText("Effect preview only · no payment recorded"),
   ).toBeTruthy();
@@ -127,7 +161,8 @@ it("clearly marks a preview, keeps the actual pot unchanged, and dismisses the e
   expect(sound.play).not.toHaveBeenCalled();
   expect(
     fetch.mock.calls.every(
-      ([url, options]) => url === "/api/display" && !options?.method,
+      ([url, options]) =>
+        url.startsWith("/api/display/celebrations") && !options?.method,
     ),
   ).toBe(true);
   await act(async () => {
@@ -147,7 +182,7 @@ it("shows reduced-motion celebrations without fireworks", async () => {
   );
   const { container } = render(<LiveDisplay />);
   await settle();
-  summary = { ...summary, pot_cents: 85000 };
+  receive(5000);
   await poll();
   expect(screen.getByText("+$50.00")).toBeTruthy();
   expect(container.querySelector("canvas")).toBeNull();
@@ -160,7 +195,35 @@ it("does not invent an arrival on initial connection or while the tab is hidden"
   render(<LiveDisplay />);
   await settle();
   vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
-  summary = { ...summary, pot_cents: 100000 };
+  receive(20000);
+  await poll();
+  expect(
+    screen.queryByRole("heading", { name: "The pot just got bigger!" }),
+  ).toBeNull();
+  vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+  await poll();
+  expect(screen.queryByText("Added by Alex Test. Huat ah!!!")).toBeNull();
+});
+
+it("acknowledges group buyers and all confirmations between polls without crediting a reversal", async () => {
+  render(<LiveDisplay />);
+  await settle();
+  receive(5000, ["Alex Test", "Jamie Test"]);
+  receive(2000, ["Alex Test", "Sam Test"]);
+  summary = { ...summary, pot_cents: summary.pot_cents - 5000 };
+  await poll();
+  expect(screen.getByText("+$70.00")).toBeTruthy();
+  expect(
+    screen.getByText("Added by Alex Test, Jamie Test and Sam Test. Huat ah!!!"),
+  ).toBeTruthy();
+});
+
+it("does not replay existing purchases or guest name corrections", async () => {
+  receive(5000);
+  render(<LiveDisplay />);
+  await settle();
+  contributions[0].guest_names = ["Corrected name"];
+  summary = { ...summary, event_title: "Updated wedding" };
   await poll();
   expect(
     screen.queryByRole("heading", { name: "The pot just got bigger!" }),

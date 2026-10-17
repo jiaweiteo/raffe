@@ -154,6 +154,17 @@
   font-size: clamp(13px, 1.5vw, 21px);
   color: #d6c79d;
   letter-spacing: 0.4px;
+  max-width: min(85vw, 1000px);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.celebration-caption svg {
+  flex-shrink: 0;
+}
+.celebration-preview-note {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.7em;
 }
 .is-celebrating .display-pot {
   animation: pot-shimmer 2.4s ease-out;

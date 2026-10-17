@@ -361,6 +361,33 @@ class Store:
                     "revision": config["revision"], "updated_at": config.get("updated_at"),
                     "event_title": config["event_title"]}
 
+    def display_celebrations(self, after=None):
+        """Public acknowledgements of new confirmations; never expose the guest roster."""
+        with self.connection() as db:
+            # Keep the cursor, names and totals in one snapshot, including across local processes.
+            if isinstance(db, sqlite3.Connection) and not db.in_transaction:
+                db.execute("BEGIN")
+            cursor = db.execute("SELECT COALESCE(MAX(id),0) FROM audit").fetchone()[0]
+            contributions = {}
+            # Initial loads (and a database reset) establish a baseline without replaying purchases.
+            if after is not None and after <= cursor:
+                rows = db.execute("""
+                    SELECT e.id, p.amount_cents, a.guest_id, g.name
+                    FROM audit e JOIN payments p ON p.id=e.payment_id
+                    JOIN allocations a ON a.payment_id=p.id JOIN guests g ON g.id=a.guest_id
+                    WHERE e.id>? AND e.id<=? AND e.action='payment_confirmed' AND p.status='confirmed'
+                    ORDER BY e.id,a.first_ticket
+                """, (after, cursor))
+                seen = set()
+                for row in rows:
+                    event = contributions.setdefault(row["id"], {
+                        "id": row["id"], "amount_cents": row["amount_cents"], "guest_names": []})
+                    identity = (row["id"], row["guest_id"])
+                    if identity not in seen:
+                        event["guest_names"].append(row["name"])
+                        seen.add(identity)
+            return {"summary": self.summary(), "cursor": cursor, "contributions": list(contributions.values())}
+
     def audit(self):
         with self.connection() as db:
             return [dict(row) for row in db.execute("SELECT * FROM audit ORDER BY id DESC")]

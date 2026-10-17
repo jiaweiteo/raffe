@@ -342,7 +342,10 @@ it("the projector only requests public data and retains the last total during an
     event_title: "A little luck. A lot of love.",
     updated_at: null,
   };
-  fetch.mockResolvedValue({ ok: true, json: async () => summary });
+  fetch.mockResolvedValue({
+    ok: true,
+    json: async () => ({ summary, cursor: 0, contributions: [] }),
+  });
   render(<LiveDisplay />);
   await waitFor(() => expect(screen.getByText("800.00")).toBeTruthy());
   expect(screen.getByText("Live from the raffle desk")).toBeTruthy();
@@ -355,7 +358,11 @@ it("the projector only requests public data and retains the last total during an
     { timeout: 3000 },
   );
   expect(screen.getByText("800.00")).toBeTruthy();
-  expect(fetch.mock.calls.every(([url]) => url === "/api/display")).toBe(true);
+  expect(
+    fetch.mock.calls.every(([url]) =>
+      url.startsWith("/api/display/celebrations"),
+    ),
+  ).toBe(true);
   expect(screen.queryByText("Alex Test")).toBeNull();
 });
 
