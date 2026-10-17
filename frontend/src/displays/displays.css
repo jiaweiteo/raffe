@@ -720,3 +720,148 @@
     opacity: 1;
   }
 }
+
+/* ── Readability over the painted background ──────────────────────────
+   Halos and larger, bolder small text so the displays read on the Monet
+   background without tinting it. Delete this whole block to revert. */
+.live-display {
+  --halo: 0 0 4px #fffef5, 0 0 12px #fffef5e6, 0 0 26px #fffef5b3;
+}
+.live-display > h1,
+.live-display .display-brand,
+.live-display .display-pool-label,
+.live-display .display-pot,
+.live-display .display-subtitle,
+.live-display .display-prizes,
+.live-display .display-inventory,
+.live-display .display-bottom {
+  text-shadow: var(--halo);
+}
+.live-display .display-brand svg,
+.live-display .display-flourish svg,
+.live-display .display-inventory svg {
+  filter: drop-shadow(0 0 3px #fffef5) drop-shadow(0 0 8px #fffef5);
+}
+.live-display .display-brand {
+  color: #5d6a47;
+}
+.live-display .display-brand > span {
+  font-size: clamp(13px, 0.95vw, 18px);
+  font-weight: 600;
+}
+.live-display .display-pool-label {
+  font-size: clamp(12px, 0.85vw, 16px);
+  font-weight: 600;
+  color: #55623f;
+}
+.live-display .display-subtitle {
+  font-size: clamp(15px, 1.1vw, 21px);
+  font-weight: 500;
+  color: #4b5b3d;
+}
+.live-display .prize-label {
+  font-size: clamp(13px, 0.9vw, 17px);
+  font-weight: 600;
+  color: #4f5c3e;
+}
+.live-display .display-inventory {
+  font-size: clamp(14px, 1vw, 19px);
+  font-weight: 500;
+  color: #4b5b3d;
+}
+.live-display .display-inventory strong {
+  font-weight: 700;
+  color: #3d4c30;
+}
+.live-display .display-bottom,
+.live-display .display-status {
+  font-size: clamp(12px, 0.75vw, 14px);
+  font-weight: 500;
+  color: #4b5b3d;
+}
+
+.potential-display {
+  --halo: 0 1px 3px #0b1712, 0 0 12px #0b1712e6, 0 0 28px #0b1712b3;
+}
+.potential-display > *:not(.potential-aura, .potential-speckles, .display-tools, .display-switch) {
+  text-shadow: var(--halo);
+}
+.potential-display .display-brand svg,
+.potential-display .potential-first-label svg,
+.potential-display .potential-invitation svg,
+.potential-display .potential-actual svg {
+  filter: drop-shadow(0 0 3px #0b1712) drop-shadow(0 0 8px #0b1712);
+}
+.potential-display .display-brand,
+.potential-eyebrow {
+  color: #ecd9a0;
+}
+.potential-display .display-brand > span,
+.potential-eyebrow {
+  font-size: clamp(13px, 0.95vw, 18px);
+  font-weight: 600;
+}
+.potential-target > p:first-child {
+  font-size: clamp(13px, 0.9vw, 17px);
+  font-weight: 600;
+  color: #efe4bf;
+}
+.potential-target > p:first-child strong {
+  font-size: clamp(17px, 1.2vw, 22px);
+  font-weight: 600;
+}
+.potential-first-label {
+  font-size: clamp(14px, 1vw, 19px);
+  font-weight: 600;
+  color: #f0d78f;
+}
+.potential-moment {
+  font-size: clamp(15px, 1.1vw, 21px);
+  font-weight: 500;
+  color: #f2ecd6;
+}
+.potential-goals button {
+  font-size: clamp(13px, 0.85vw, 16px);
+  font-weight: 500;
+  color: #e6e0c6;
+}
+.potential-prizes .prize-label {
+  font-size: clamp(13px, 0.9vw, 17px);
+  font-weight: 600;
+  color: #efe4bf;
+}
+.potential-invitation {
+  font-size: clamp(16px, 1.15vw, 22px);
+  font-weight: 500;
+  color: #f0dca3;
+}
+.potential-packages > span {
+  font-size: clamp(14px, 0.95vw, 18px);
+  font-weight: 500;
+  color: #efe8cf;
+}
+.potential-packages strong {
+  font-size: clamp(30px, 2vw, 38px);
+  font-weight: 500;
+}
+.potential-actual {
+  font-size: clamp(13px, 0.9vw, 17px);
+  font-weight: 500;
+  color: #ece6cb;
+}
+.potential-actual strong {
+  font-size: clamp(16px, 1.1vw, 20px);
+  font-weight: 700;
+}
+.potential-disclaimer {
+  font-size: clamp(12px, 0.8vw, 15px);
+  font-weight: 500;
+  color: #e3decb;
+}
+.potential-display .display-bottom,
+.potential-display .display-status {
+  font-size: clamp(12px, 0.75vw, 14px);
+  font-weight: 500;
+  color: #e3decb;
+}
+/* ── End readability block ── */
