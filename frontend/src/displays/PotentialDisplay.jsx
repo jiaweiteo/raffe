@@ -59,11 +59,10 @@ export default function PotentialDisplay() {
         <FullscreenButton />
       </div>
       <DisplayBrand />
-      <p className="potential-eyebrow">FIVE PRIZES. ONE LUCKY CELEBRATION.</p>
       <h1>
         {soldOut
           ? "The pot is set. The luck is next."
-          : "Imagine your winning moment."}
+          : "有买有希望 ～ Betting on Love"}
       </h1>
       <div className="potential-target" key={target}>
         <p>
@@ -77,11 +76,6 @@ export default function PotentialDisplay() {
           {soldOut ? "FIRST PRIZE" : "FIRST PRIZE COULD BE"}
         </div>
         <div className="potential-first-amount">{money(prizes[0])}</div>
-        <p className="potential-moment">
-          {soldOut
-            ? "Good luck to everyone in the draw."
-            : "A little ticket. A rather wonderful possibility."}
-        </p>
       </div>
       {goals.length > 1 && (
         <div className="potential-goals" aria-label="Example prize pools">
@@ -102,16 +96,6 @@ export default function PotentialDisplay() {
         <PrizeCards summary={{ prizes_cents: prizes }} large />
       </div>
       {!soldOut && (
-        <div className="potential-invitation">
-          <Sparkles size={19} />
-          <span>
-            Join in at the raffle desk.{" "}
-            <strong>Help the possibilities grow.</strong>
-          </span>
-          <Sparkles size={19} />
-        </div>
-      )}
-      {!soldOut && (
         <div className="potential-packages" aria-label="Ticket packages">
           <span>
             <strong>$5</strong>1 entry
@@ -126,25 +110,6 @@ export default function PotentialDisplay() {
           </span>
         </div>
       )}
-      <div className="potential-actual">
-        <span>
-          <span className={`status-dot ${connected ? "" : "amber"}`} />
-          Actual live pot{" "}
-          <strong>{summary ? money(summary.pot_cents) : "Connecting…"}</strong>
-        </span>
-        {summary && (
-          <span>
-            <Ticket size={15} />
-            <strong>{integer(summary.remaining)}</strong> tickets available
-          </span>
-        )}
-      </div>
-      <p className="potential-disclaimer">
-        {soldOut
-          ? "Prize amounts reflect the current confirmed pot."
-          : "Illustrative potential payouts. Actual prizes depend on the final confirmed pot."}
-      </p>
-      <DisplayStatus summary={summary} connected={connected} />
     </main>
   );
 }

@@ -164,9 +164,6 @@ export default function LiveDisplay() {
           <span className="display-loading">Preparing the celebration…</span>
         )}
       </div>
-      <p className="display-subtitle">
-        A little contribution. A chance at something wonderful.
-      </p>
       {summary && (
         <>
           <div className="display-prizes">
