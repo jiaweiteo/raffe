@@ -58,7 +58,7 @@ export default function LiveDisplay() {
     if (audio.current?.enabled) audio.current.play();
   };
   useEffect(() => {
-    document.title = "The Wedding Raffle · Live";
+    document.title = "Markus & Julia · Live";
     return () => audio.current?.close();
   }, []);
   useEffect(() => {

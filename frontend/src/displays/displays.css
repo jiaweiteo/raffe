@@ -725,7 +725,7 @@
    Halos and larger, bolder small text so the displays read on the Monet
    background without tinting it. Delete this whole block to revert. */
 .live-display {
-  --halo: 0 0 4px #fffef5, 0 0 12px #fffef5e6, 0 0 26px #fffef5b3;
+  --halo: 0 0 3px #fffef5cc, 0 0 10px #fffef580;
 }
 .live-display > h1,
 .live-display .display-brand,
@@ -740,7 +740,7 @@
 .live-display .display-brand svg,
 .live-display .display-flourish svg,
 .live-display .display-inventory svg {
-  filter: drop-shadow(0 0 3px #fffef5) drop-shadow(0 0 8px #fffef5);
+  filter: drop-shadow(0 0 3px #fffef5cc);
 }
 .live-display .display-brand {
   color: #5d6a47;
@@ -781,7 +781,7 @@
 }
 
 .potential-display {
-  --halo: 0 1px 3px #0b1712, 0 0 12px #0b1712e6, 0 0 28px #0b1712b3;
+  --halo: 0 1px 2px #0b1712cc, 0 0 10px #0b171280;
 }
 .potential-display > *:not(.potential-aura, .potential-speckles, .display-tools, .display-switch) {
   text-shadow: var(--halo);
@@ -790,7 +790,7 @@
 .potential-display .potential-first-label svg,
 .potential-display .potential-invitation svg,
 .potential-display .potential-actual svg {
-  filter: drop-shadow(0 0 3px #0b1712) drop-shadow(0 0 8px #0b1712);
+  filter: drop-shadow(0 0 3px #0b1712cc);
 }
 .potential-display .display-brand,
 .potential-eyebrow {
@@ -865,3 +865,104 @@
   color: #e3decb;
 }
 /* ── End readability block ── */
+
+/* ── Dark tint over the painting ──────────────────────────────────────
+   A plain dark green tint between the painting and the content; no blur.
+   Delete this whole block to revert to the untinted painting. */
+.live-display,
+.potential-display {
+  isolation: isolate;
+}
+.live-display::before,
+.potential-display::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background: #0f1f18a6;
+}
+/* ── End dark tint block ── */
+
+/* ── Live display: dark green and gold theme ──────────────────────────
+   Matches the potential-prizes display. Delete this whole block to
+   return the live display to its cream theme. */
+.live-display {
+  color: #f6efda;
+  --halo: 0 1px 2px #0b1712cc, 0 0 10px #0b171280;
+}
+.live-display .display-brand svg,
+.live-display .display-flourish svg,
+.live-display .display-inventory svg {
+  filter: drop-shadow(0 0 3px #0b1712cc);
+}
+.live-display .display-tool {
+  color: #d4c69e;
+  background: #21352cdf;
+  border-color: #b8a26b55;
+}
+.live-display .display-tool:hover,
+.live-display .display-tool:focus-visible {
+  background: #314a3c;
+  color: #fff6dc;
+}
+.live-display .display-brand {
+  color: #ecd9a0;
+}
+.live-display > h1 {
+  color: #faf3de;
+}
+.live-display .display-flourish {
+  color: #e2c77f;
+}
+.live-display .display-flourish > span {
+  background: linear-gradient(90deg, transparent, #d9bf7a);
+}
+.live-display .display-pool-label {
+  color: #ecd9a0;
+}
+.live-display .display-pot {
+  color: #f5dd9a;
+}
+.live-display .display-pot > span {
+  color: #e2c77f;
+}
+.live-display .display-subtitle {
+  color: #f2ecd6;
+}
+.live-display .display-prizes .prize-cards {
+  border-top-color: #c9b47b40;
+  border-bottom-color: #c9b47b40;
+}
+.live-display .display-prizes .prize-card {
+  border-right-color: #c9b47b30;
+}
+.live-display .display-prizes .prize-card:last-child {
+  border-right: 0;
+}
+.live-display .prize-label {
+  color: #efe4bf;
+}
+.live-display .display-prizes .prize-1 .prize-label {
+  color: #f0d78f;
+}
+.live-display .display-prizes .prize-card > strong {
+  color: #f4e7be;
+}
+.live-display .display-inventory {
+  color: #ece6cb;
+}
+.live-display .display-inventory strong {
+  color: #f6efda;
+}
+.live-display .display-inventory > i {
+  background: #998b62;
+}
+.live-display .display-bottom,
+.live-display .display-status {
+  color: #e3decb;
+}
+.live-display .display-orbit {
+  border-color: #d2bc7e14;
+}
+/* ── End live dark theme block ── */
