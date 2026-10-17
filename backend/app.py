@@ -390,6 +390,7 @@ def create_app(data_dir=None, source=None, output=None, run_workers=True, *, clo
     @app.get("/")
     @app.get("/admin")
     @app.get("/display")
+    @app.get("/display/potential")
     def index():
         if not (dist / "index.html").is_file():
             return JSONResponse({"detail": "Build the interface first: cd frontend && npm run build"}, status_code=503)

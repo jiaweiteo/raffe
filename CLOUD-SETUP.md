@@ -10,6 +10,7 @@ The runtime uses the `raffle_backend` database role, with access confined to the
 
 - Admin: https://wedding-raffle-jiaweiteos-projects.vercel.app/admin
 - Projector: https://wedding-raffle-jiaweiteos-projects.vercel.app/display
+- Potential prizes: https://wedding-raffle-jiaweiteos-projects.vercel.app/display/potential
 
 The administrator account has been created and confirmed. Public signups and anonymous sign-ins are disabled. Sign in using the password set during setup. Private API routes require an authorized Supabase session; the public display only receives aggregate totals.
 
@@ -66,6 +67,8 @@ npx vercel deploy --prod
 ```
 
 Open `/admin` and sign in. Open `/display` on the projector. The display polls aggregate totals every two seconds and never fetches guest or banking data. Admin data refreshes every five seconds. Changes need an internet connection; pending forms do not represent saved purchases.
+
+Use `/display/potential` for the separate crowd-facing prize examples. Click **Enable sound** on `/display` before the event to enable the contribution fanfare, then use **Preview effect** to rehearse without changing any records. Sound starts muted on each page load. Both displays support fullscreen and can run in separate browser windows.
 
 Excel downloads are generated from committed cloud records on demand. They do not modify the workbook on your laptop. **Back up records** downloads a JSON snapshot of all ledger tables; retain the original local template too. The JSON includes private guest information and should be stored privately.
 

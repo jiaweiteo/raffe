@@ -29,6 +29,7 @@ import {
   X,
 } from "lucide-react";
 import "./styles.css";
+import "./displays/displays.css";
 
 import AuditPage from "./AuditPage";
 import GuestList from "./GuestList";
@@ -41,6 +42,9 @@ import GuestPicker from "./GuestPicker";
 import AllocationForm from "./AllocationForm";
 import ManualModal from "./ManualModal";
 import SettingsPage from "./SettingsPage";
+import PrizeCards from "./PrizeCards";
+import LiveDisplay from "./displays/LiveDisplay";
+import PotentialDisplay from "./displays/PotentialDisplay";
 
 function PaymentDetail({ payment, guests, act, busy, onClose }) {
   const [mode, setMode] = useState("view"),
@@ -176,33 +180,6 @@ function PaymentDetail({ payment, guests, act, busy, onClose }) {
         <Button onClick={onClose}>Close</Button>
       </div>
     </Modal>
-  );
-}
-
-function PrizeCards({ summary, large = false }) {
-  const labels = [
-    "First prize",
-    "Second prize",
-    "Third prize",
-    "Fourth prize",
-    "Fifth prize",
-  ];
-  return (
-    <div className={`prize-cards ${large ? "large" : ""}`}>
-      {summary.prizes_cents.map((cents, index) => (
-        <div className={`prize-card prize-${index + 1}`} key={index}>
-          <div className="prize-label">
-            {index === 0 ? (
-              <Trophy size={17} />
-            ) : (
-              <span className="prize-index">0{index + 1}</span>
-            )}
-            <span>{labels[index]}</span>
-          </div>
-          <strong>{money(cents)}</strong>
-        </div>
-      ))}
-    </div>
   );
 }
 
@@ -370,6 +347,16 @@ function Admin({ cloud = false }) {
         >
           <Expand size={18} />
           <span>Live display</span>
+          <ArrowUpRight size={16} />
+        </a>
+        <a
+          className="display-nav potential-nav"
+          href="/display/potential"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <Sparkles size={18} />
+          <span>Potential prizes</span>
           <ArrowUpRight size={16} />
         </a>
         <div className="sidebar-bottom">
@@ -1010,129 +997,14 @@ function Admin({ cloud = false }) {
   );
 }
 
-function LiveDisplay() {
-  const [summary, setSummary] = useState(null),
-    [connected, setConnected] = useState(false);
-  useEffect(() => {
-    document.title = "The Wedding Raffle · Live";
-    let active = true,
-      inFlight = false;
-    const refresh = async () => {
-      if (inFlight) return;
-      inFlight = true;
-      try {
-        const response = await fetch("/api/display");
-        if (!response.ok) throw new Error();
-        const value = await response.json();
-        if (active) {
-          setSummary(value);
-          setConnected(true);
-        }
-      } catch {
-        if (active) setConnected(false);
-      } finally {
-        inFlight = false;
-      }
-    };
-    refresh();
-    const timer = setInterval(refresh, 2000);
-    return () => {
-      active = false;
-      clearInterval(timer);
-    };
-  }, []);
-  return (
-    <main className="live-display">
-      <div className="display-orbit orbit-one" />
-      <div className="display-orbit orbit-two" />
-      <button
-        className="fullscreen-button icon-button"
-        aria-label="Enter fullscreen"
-        onClick={() =>
-          document.fullscreenElement
-            ? document.exitFullscreen()
-            : document.documentElement.requestFullscreen()
-        }
-      >
-        <Expand size={22} />
-      </button>
-      <div className="display-brand">
-        <Leaf size={21} strokeWidth={1} />
-        <span>THE WEDDING RAFFLE</span>
-        <Leaf size={21} strokeWidth={1} />
-      </div>
-      <h1>{summary?.event_title || "A little luck. A lot of love."}</h1>
-      <div className="display-flourish">
-        <span />
-        <Sparkles size={20} strokeWidth={1} />
-        <span />
-      </div>
-      <p className="display-pool-label">OUR GROWING PRIZE POOL</p>
-      <div className="display-pot">
-        {summary ? (
-          <>
-            <span>S$</span>
-            {new Intl.NumberFormat("en-SG", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            }).format(summary.pot_cents / 100)}
-          </>
-        ) : (
-          <span className="display-loading">Preparing the celebration…</span>
-        )}
-      </div>
-      <p className="display-subtitle">
-        A little contribution. A chance at something wonderful.
-      </p>
-      {summary && (
-        <>
-          <div className="display-prizes">
-            <PrizeCards summary={summary} large />
-          </div>
-          <div className="display-inventory">
-            <span>
-              <Ticket size={19} />
-              <strong>{integer(summary.sold)}</strong> tickets in the draw
-            </span>
-            <i />
-            <span>
-              <strong>{integer(summary.remaining)}</strong> chances still
-              waiting
-            </span>
-            {summary.voided > 0 && (
-              <>
-                <i />
-                <span>{integer(summary.voided)} tickets voided</span>
-              </>
-            )}
-          </div>
-        </>
-      )}
-      <div className="display-bottom">
-        <span className={`display-status ${connected ? "" : "offline"}`}>
-          <span className={`status-dot ${connected ? "" : "amber"}`} />
-          {connected
-            ? "Live from the raffle desk"
-            : summary
-              ? "Reconnecting · showing last confirmed total"
-              : "Waiting for the raffle desk"}
-        </span>
-        <span>
-          {summary?.updated_at
-            ? `Updated ${time(summary.updated_at)}`
-            : "Five prizes. One lovely celebration."}
-        </span>
-      </div>
-    </main>
-  );
-}
-
 export { Admin, LiveDisplay, AllocationForm, ManualModal, GuestPicker };
 const root = document.getElementById("root");
 if (root)
   createRoot(root).render(
     location.pathname === "/display" ? (
       <LiveDisplay />
+    ) : location.pathname === "/display/potential" ? (
+      <PotentialDisplay />
     ) : (
       <AuthGate>
         <Admin />

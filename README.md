@@ -1,6 +1,6 @@
 # The Wedding Raffle
 
-A local raffle desk and a separate ivory-and-gold projector display. Your guest list, payment records and workbook stay on this Mac. There is no hosted website.
+A raffle desk with a live prize-pool display and a second potential-prize display. It can run locally on this Mac or on the existing Vercel + Supabase deployment; see `CLOUD-SETUP.md` for the cloud URLs.
 
 ## Open the app
 
@@ -10,10 +10,19 @@ Dependencies are installed and the interface is already built in this workspace.
 
 - Admin: <http://127.0.0.1:8765/admin>
 - Projector: <http://127.0.0.1:8765/display>
+- Potential prizes: <http://127.0.0.1:8765/display/potential>
 
 Move the display window onto your projector/TV and use its fullscreen button. Use extended desktop so guests see only the display window. Keep the Mac awake and connected to power. Press **Control-C** in Terminal when finished. Restarting preserves purchases and catches up on Outlook alerts.
 
 For a fresh installation on this Mac, install Python 3.14 and Node.js 24, run `./setup.sh`, then use the launcher. The pinned Python and npm lock files reproduce the tested dependency versions. Internet is required for installation, Microsoft sign-in and new email alerts; ordinary administration and the display run locally.
+
+## Projector displays
+
+**Live display** shows confirmed totals. New increases trigger a nine-second celebration with gold fireworks, confetti, sweeping light, a large contribution announcement and an animated pot total. Open the display, click **Enable sound** once, and check **Preview effect** before guests arrive. Browser autoplay rules require that first click; repeat it after reloading the page. The preview does not create a payment or change the pot. The sound can be muted at any time. Initial page loads, repeated polls and reversals do not trigger a celebration. Reduced-motion preferences replace fireworks with a static announcement.
+
+**Potential prizes** uses a dark green and gold layout to show how all five prizes would look at larger example pots, initially $3,000 / $4,000 / $5,000. It rotates every nine seconds and can be paused or switched manually. Examples are labelled as illustrative, with the actual live pot and available tickets shown separately. Targets update as the pot grows and stay within the maximum possible pot based on remaining tickets at $5 each. When inventory runs out, the screen shows the confirmed prize amounts and removes the purchase invitation.
+
+Both screens have fullscreen controls and links to each other. They request only public aggregate totals; no guest, payment-reference or bank details are shown.
 
 ## Record the first payment
 

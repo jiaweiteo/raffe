@@ -76,6 +76,7 @@ def test_cloud_api_never_exposes_local_session_token_or_private_records(auth, tm
         public = client.get("/api/display").json()
         assert set(public) == {"pot_cents","prizes_cents","sold","voided","remaining","capacity","revision","updated_at","event_title"}
         assert client.get("/api/events").status_code == 404
+        assert client.get("/display/potential").status_code == 200
         headers = {"Authorization":"Bearer verified-admin"}
         state = client.get("/api/state",headers=headers).json()
         assert len(state["guests"]) == 251
