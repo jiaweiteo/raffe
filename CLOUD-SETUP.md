@@ -12,7 +12,7 @@ The runtime uses the `raffle_backend` database role, with access confined to the
 - Projector: https://wedding-raffle-jiaweiteos-projects.vercel.app/display
 - Potential prizes: https://wedding-raffle-jiaweiteos-projects.vercel.app/display/potential
 
-The administrator account has been created and confirmed. Public signups and anonymous sign-ins are disabled. Sign in using the password set during setup. Private API routes require an authorized Supabase session; the public display only receives aggregate totals.
+The administrator account has been created and confirmed. Public signups and anonymous sign-ins are disabled. Sign in using the password set during setup. Private API routes require an authorized Supabase session. The public live display receives totals and contributing guest names for celebration acknowledgements; the potential-prize screen receives only totals.
 
 Verified after launch: 251 guests, nine payments, $3,255 confirmed pot, 976 tickets sold and 524 remaining. A downloaded workbook reconciled with these totals and included all three audit sheets and 1,500 ticket-register rows. A JSON records backup was also downloaded. These are setup-time checks; live values will change as purchases are recorded.
 
@@ -66,7 +66,7 @@ Using the Vercel CLI after account connection:
 npx vercel deploy --prod
 ```
 
-Open `/admin` and sign in. Open `/display` on the projector. The display polls aggregate totals every two seconds and never fetches guest or banking data. Admin data refreshes every five seconds. Changes need an internet connection; pending forms do not represent saved purchases.
+Open `/admin` and sign in. Open `/display` on the projector. Every two seconds it polls `/api/display/celebrations` for totals and names attached to new confirmed contributions. Initial loads establish a cursor without replaying past celebrations. Guest lists, relationships, table numbers, payment references and banking data remain private. Admin data refreshes every five seconds. Changes need an internet connection; pending forms do not represent saved purchases.
 
 Use `/display/potential` for the separate crowd-facing prize examples. Click **Enable sound** on `/display` before the event to enable the contribution fanfare, then use **Preview effect** to rehearse without changing any records. Sound starts muted on each page load. Both displays support fullscreen and can run in separate browser windows.
 
